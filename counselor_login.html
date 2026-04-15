@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In - SafeSpace Counselor Portal</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+    body {
+      background: #f4f6f9;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: linear-gradient(135deg, #004c27, #00723f);
+      color: white;
+      padding: 2rem 1rem;
+      text-align: center;
+      /* Make header sticky so it remains visible on scroll */
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      overflow: hidden;
+      /* subtle shadow to separate header from content when scrolling */
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="80" r="1.5" fill="rgba(255,255,255,0.1)"/></svg>');
+      opacity: 0.25;
+    }
+    .header-content { position: relative; z-index:1 }
+    .logo-section { display:flex; align-items:center; justify-content:center; gap:1rem; margin-bottom:1rem }
+    .logo { width:48px; height:48px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#00723f; font-weight:bold; font-size:1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .header h1 { font-size:2rem; font-weight:600; margin-bottom:0.5rem }
+    .header p { font-size:1rem; opacity:0.9; font-weight:300 }
+    .header-back-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      margin-top: 0;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.12);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .header-back-link:hover {
+      background: rgba(255,255,255,0.22);
+      border-color: rgba(255,255,255,0.75);
+      transform: translateY(calc(-50% - 1px));
+    }
+    .header-back-link:focus-visible {
+      outline: 3px solid rgba(255,255,255,0.28);
+      outline-offset: 2px;
+    }
+
+  .main-container { flex:1; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; padding-bottom:4.5rem /* avoid footer overlap */ }
+    .container { max-width:420px; width:100%; background:white; padding:2rem; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.1); border:1px solid rgba(255,255,255,0.2) }
+    .signin-title { font-size:1.5rem; font-weight:600; margin-bottom:0.5rem; color:#00723f; text-align:center }
+    .signin-subtitle { font-size:0.9rem; color:#666; text-align:center; margin-bottom:2rem }
+
+    .form-group { margin-bottom:1.25rem }
+    label { display:block; margin-bottom:0.5rem; font-size:0.95rem; font-weight:500; color:#333 }
+    .input-wrapper { position:relative }
+    input { width:100%; padding:0.875rem 1rem; padding-left:3rem; padding-right:3rem; border:2px solid #e1e5e9; border-radius:10px; font-size:1rem; transition:border-color .3s, box-shadow .3s; background:#f9f9f9 }
+    input:focus { outline:none; border-color:#00723f; background:white; box-shadow:0 0 0 3px rgba(0,114,63,0.1) }
+    .input-icon { position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:#666; font-size:1rem }
+    .toggle-password { position:absolute; right:0.75rem; top:50%; transform:translateY(-50%); background:transparent; border:none; color:#666; font-size:1rem; cursor:pointer; padding:0.25rem; display:inline-flex; align-items:center; justify-content:center }
+    .toggle-password:focus { outline:none; color:#00723f }
+
+    .forgot { text-align:right; margin-top:0.5rem; margin-bottom:1rem }
+    .forgot a { color:#00723f; text-decoration:none; font-size:0.9rem; font-weight:500 }
+    .signin-btn { width:100%; padding:1rem; font-size:1.1rem; font-weight:600; border:none; border-radius:10px; background:linear-gradient(135deg,#00723f,#004c27); color:white; cursor:pointer; margin-bottom:1.5rem; position:relative; overflow:hidden }
+    .signin-btn.loading { pointer-events:none; opacity:0.7 }
+    .signin-btn.loading::after { content:''; position:absolute; width:16px; height:16px; margin:auto; border:2px solid transparent; border-top-color:white; border-radius:50%; animation:spin 1s linear infinite; top:50%; left:50%; transform:translate(-50%,-50%) }
+    @keyframes spin { 0%{transform:translate(-50%,-50%) rotate(0deg)} 100%{transform:translate(-50%,-50%) rotate(360deg)} }
+
+    .divider { text-align:center; margin:1.5rem 0; position:relative; color:#999; font-size:0.9rem }
+    .divider::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:#e1e5e9 }
+    .divider span { background:white; padding:0 1rem; position:relative }
+    .signup-link { text-align:center; font-size:0.95rem; color:#666 }
+    .signup-link a { color:#00723f; text-decoration:none; font-weight:600 }
+
+    .footer {
+      background:#f8f9fa;
+      padding:1rem;
+      text-align:center;
+      font-size:0.85rem;
+      color:#666;
+      border-top:1px solid #e1e5e9;
+      /* Make footer sticky at the bottom */
+      position: sticky;
+      bottom: 0;
+      z-index: 1000;
+      width: 100%;
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.06);
+    }
+
+    /* Enhanced 2FA Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 2000;
+      padding: 1rem;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+      text-align: center;
+      position: relative; /* ensure positioned children stay inside */
+      overflow: visible; /* allow close button to appear inside the rounded card */
+    }
+    .modal-icon {
+      width: 64px;
+      height: 64px;
+      background: rgba(0, 114, 63, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      color: #00723f;
+      font-size: 1.5rem;
+    }
+    .modal h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #333;
+    }
+    .modal-close{
+      position:absolute;
+      right:0.75rem;
+      top:0.5rem;
+      background:#ffffff;
+      border:none;
+      font-size:1.15rem;
+      line-height:1;
+      color:#374151;
+      cursor:pointer;
+      width:34px;
+      height:34px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      z-index:3;
+    }
+    .modal-close:hover { background:#f3f4f6; }
+    .modal-close:focus{outline:none;color:#00723f}
+    .modal p {
+      color: #666;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .verification-inputs {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+      .verification-input {
+        width: 50px;
+        height: 60px;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #0b1f18 !important; /* ensure digits are visible */
+        background: #ffffff !important;
+        transition: all 0.18s ease;
+        line-height: 1.05;
+        -webkit-font-smoothing: antialiased;
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        -webkit-appearance: none;
+        appearance: none;
+        -webkit-text-security: none; /* override any masking */
+        caret-color: #0b1f18;
+        padding: 0; /* keep digits vertically centered */
+      }
+    .verification-input:focus {
+      outline: none;
+      border-color: #00723f;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(0, 114, 63, 0.1);
+    }
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 0.875rem;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .modal-btn.primary {
+      background: linear-gradient(135deg, #00723f, #004c27);
+      color: white;
+    }
+    .modal-btn.secondary {
+      background: transparent;
+      border: 2px solid #e1e5e9;
+      color: #666;
+    }
+    .modal-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .modal-btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border: 2px solid transparent;
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .modal-btn.loading { pointer-events:none; opacity:0.75 }
+    .countdown {
+      margin-top: 1rem;
+      color: #666;
+      font-size: 0.9rem;
+    }
+    .countdown.expired { color: #b91c1c; }
+    .resend-link {
+      color: #00723f;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .resend-link:hover { text-decoration: underline; }
+    .resend-link:disabled {
+      color: #999;
+      cursor: not-allowed;
+      text-decoration: none;
+    }
+
+    @media (max-width:768px){ 
+      .header{padding:1.5rem 1rem} 
+      .header h1{font-size:1.8rem} 
+      .logo{width:40px;height:40px;font-size:1rem} 
+      .container{padding:1.5rem;border-radius:12px} 
+      .modal { padding: 1.5rem; }
+      .header-back-link {
+        position: static;
+        transform: none;
+        margin-top: 0.8rem;
+      }
+      .header-back-link:hover {
+        transform: translateY(-1px);
+      }
+    }
+    @media (max-width:480px){ 
+      .container{margin:0;border-radius:0;box-shadow:none;border:none} 
+      .main-container{padding:0.5rem} 
+      .verification-inputs { gap: 0.5rem; }
+      .verification-input { width: 45px; height: 55px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo-section">
+        <div class="logo">SS</div>
+        <h1>SafeSpace</h1>
+      </div>
+      <p>Your mental wellness companion</p>
+      <a class="header-back-link" href="index.html" aria-label="Back to landing page">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        <span>Back to Landing Page</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div class="container login-card">
+      <h2 class="signin-title">Welcome Back</h2>
+      <p class="signin-subtitle">Sign in to continue to your counselor portal</p>
+
+      <div id="loginStatus" style="color:#b91c1c;font-weight:600;margin-bottom:0.75rem;display:none">Please sign in</div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <div class="input-wrapper">
+            <i class="fas fa-envelope input-icon"></i>
+            <input type="email" id="email" placeholder="Enter your email address" required />
+          </div>
+          <p id="emailError" style="color:#b91c1c;font-size:0.85rem;margin-top:0.35rem;display:none">Email is required.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" id="password" placeholder="Enter your password" required />
+            <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password" aria-pressed="false">
+              <i class="fas fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p id="passwordError" style="color:#b91c1c;font-size:0.85rem;margin-top:0.35rem;display:none">Password is required.</p>
+          <div class="forgot"><a href="#" id="forgotLink">Forgot Password?</a></div>
+        </div>
+
+        <button type="submit" id="signinBtn" class="signin-btn">Sign In to Portal</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="footer"><p>&copy; 2025 SafeSpace. Your privacy and mental wellness are our priority.</p></div>
+  
+  <!-- Enhanced 2FA Modal -->
+  <div class="modal-overlay" id="twoFAModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="twoFATitle">
+      <button id="twoFAClose" class="modal-close" aria-label="Close verification">&times;</button>
+      <div class="modal-icon">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <h3 id="twoFATitle">Two-Step Verification</h3>
+      <p>We've sent a 6-digit verification code to your email address. Please enter it below to continue.</p>
+      
+      <div class="verification-inputs">
+        <input type="text" maxlength="1" class="verification-input" data-index="0" inputmode="numeric" pattern="[0-9]*">
+        <input type="text" maxlength="1" class="verification-input" data-index="1" inputmode="numeric" pattern="[0-9]*">
+        <input type="text" maxlength="1" class="verification-input" data-index="2" inputmode="numeric" pattern="[0-9]*">
+        <input type="text" maxlength="1" class="verification-input" data-index="3" inputmode="numeric" pattern="[0-9]*">
+        <input type="text" maxlength="1" class="verification-input" data-index="4" inputmode="numeric" pattern="[0-9]*">
+        <input type="text" maxlength="1" class="verification-input" data-index="5" inputmode="numeric" pattern="[0-9]*">
+      </div>
+      
+      <p id="twoFAError" style="color:#b91c1c;font-size:0.9rem;margin-top:0.5rem;display:none">Invalid or expired code. Please try again.</p>
+      
+      <div class="modal-actions">
+        <button id="twoFAVerify" class="modal-btn primary">Verify & Continue</button>
+      </div>
+      
+      <div class="countdown" id="twoFACountdown">
+        Code expires in <span id="countdownTimer">05:00</span>
+      </div>
+      
+      <p style="margin-top: 1rem; font-size: 0.9rem;">
+        Didn't receive the code? 
+        <a id="twoFAResend" class="resend-link">Resend Code</a>
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+  import { watchAuth, db, login, logout } from './main.js';
+
+    // Always clear local/session storage on login page load
+    localStorage.clear();
+    sessionStorage.clear();
+    // Helper: Check if login is enabled in RTDB
+    async function isLoginEnabled() {
+      try {
+        const { get, ref } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+        const [flagSnap, msgSnap] = await Promise.all([
+          get(ref(db, 'config/loginEnabled')),
+          get(ref(db, 'config/loginDisabledMessage'))
+        ]);
+        const enabled = flagSnap.exists() ? !!flagSnap.val() : true;
+        const message = msgSnap.exists() ? String(msgSnap.val()) : 'Login is currently disabled. Please try again later.';
+        return { enabled, message };
+      } catch (e) {
+        // If the check fails (offline, permission), default to enabled
+        return { enabled: true, message: 'Login check failed.' };
+      }
+    }
+
+    // Helper: Check if counselor account allows login by email
+    async function isCounselorLoginAllowedByEmail(email) {
+      try {
+        const { get, query, ref, orderByChild, equalTo } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+        const q = query(ref(db, 'counselors'), orderByChild('email_address'), equalTo(email));
+        const snap = await get(q);
+        if (!snap.exists()) {
+          // No counselor record found -> this is not a counselor account
+          return { allowed: false, message: 'Only counselor accounts can sign in here. Please use the counselor login or contact admin.' };
+        }
+        let allowed = true;
+        let message = 'Your account login is disabled. Please contact the administrator.';
+        snap.forEach(child => {
+          const v = child.val() || {};
+          const status = String(v.status || '').toLowerCase();
+          const loginFlag = String(v.login || '').toLowerCase();
+          const loginAccess = v.login_access;
+          const isDisabled = (loginAccess === false) || (loginFlag === 'disable') || (status !== 'active');
+          if (isDisabled) allowed = false;
+        });
+        return { allowed, message: allowed ? '' : message };
+      } catch (e) {
+        // If we fail to check, don't block login by default
+        return { allowed: true };
+      }
+    }
+
+    function setFormDisabled(disabled, msg) {
+      const status = document.getElementById('loginStatus');
+      const email = document.getElementById('email');
+      const password = document.getElementById('password');
+      const btn = document.getElementById('signinBtn');
+      if (status) {
+        if (disabled) {
+          status.textContent = msg || 'Login is currently disabled. Please try again later.';
+          status.style.display = 'block';
+        } else {
+          if (!status.dataset.persistent || status.dataset.persistent !== 'true') {
+            status.style.display = 'none';
+          }
+        }
+      }
+      if (email) email.disabled = disabled;
+      if (password) password.disabled = disabled;
+      if (btn) {
+        btn.disabled = disabled;
+        if (disabled) { btn.classList.add('opacity-60','cursor-not-allowed'); }
+        else { btn.classList.remove('opacity-60','cursor-not-allowed'); }
+      }
+    }
+
+    // Helper: Check counselor access by UID after auth (handles rules that block pre-login reads)
+    async function isCounselorLoginAllowedByUid(uid) {
+      try {
+        const { get, query, ref, orderByChild, equalTo } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+        const q = query(ref(db, 'counselors'), orderByChild('uid'), equalTo(uid));
+        const snap = await get(q);
+        if (!snap.exists()) {
+          // No counselor record found -> block login here
+          return { allowed: false, message: 'Only counselor accounts can sign in here. Please contact admin if you believe this is an error.' };
+        }
+        let allowed = true;
+        let message = 'Your account login is disabled. Please contact the administrator.';
+        snap.forEach(child => {
+          const v = child.val() || {};
+          const status = String(v.status || '').toLowerCase();
+          const loginFlag = String(v.login || '').toLowerCase();
+          const loginAccess = v.login_access;
+          const isDisabled = (loginAccess === false) || (loginFlag === 'disable') || (status !== 'active');
+          if (isDisabled) allowed = false;
+        });
+        return { allowed, message: allowed ? '' : message };
+      } catch (e) {
+        // If check fails, don't block by default; rely on admin rules
+        return { allowed: true };
+      }
+    }
+
+  // LOGIN PAGE LOGIC (uses main.js exports)
+    watchAuth(async (user) => {
+      const statusEl = document.getElementById('loginStatus');
+      if (user && !user.isAnonymous && user.email) {
+        // Post-login access check
+        const access = await isCounselorLoginAllowedByUid(user.uid);
+        if (!access.allowed) {
+          const msg = access.message || 'Your account login is disabled. Please contact the administrator.';
+          if (statusEl) { statusEl.textContent = msg; statusEl.style.display = 'block'; statusEl.dataset.persistent = 'true'; }
+          try { await logout(); } catch {}
+          if (String(msg || '').toLowerCase().includes('only counselor accounts')) {
+            const emailEl = document.getElementById('email');
+            if (emailEl) emailEl.focus();
+            return;
+          }
+          setFormDisabled(true, msg);
+          return;
+        }
+
+        // If we reached here, auth is valid and allowed. Before navigating,
+        // ensure the 2FA modal (if open) is closed and any loading state cleared
+        try {
+          if (typeof hideTwoFAModal === 'function') hideTwoFAModal();
+        } catch (e) { /* ignore */ }
+        try {
+          const twoFAVerifyBtn = document.getElementById('twoFAVerify');
+          if (twoFAVerifyBtn) { twoFAVerifyBtn.disabled = false; twoFAVerifyBtn.classList.remove('loading'); }
+          const signinBtn = document.getElementById('signinBtn');
+          if (signinBtn) { signinBtn.disabled = false; signinBtn.classList.remove('loading'); }
+        } catch (e) { /* ignore */ }
+
+        window.location.href = "home.html";
+      } else {
+        if (statusEl) statusEl.style.display = 'block';
+      }
+    });
+
+    // Pre-check gate on load to optionally disable the form
+    (async () => {
+      const gate = await isLoginEnabled();
+      if (!gate.enabled) setFormDisabled(true, gate.message);
+    })();
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const signinBtn = document.getElementById('signinBtn');
+      if (signinBtn) { signinBtn.disabled = true; signinBtn.classList.add('loading'); }
+      let valid = true;
+      const email = document.getElementById("email");
+      const password = document.getElementById("password");
+      const emailError = document.getElementById("emailError");
+      const passwordError = document.getElementById("passwordError");
+      if (!email.value.trim()) {
+        if (emailError) emailError.style.display = 'block';
+        email.classList.add("border-red-500");
+        valid = false;
+      } else {
+        if (emailError) emailError.style.display = 'none';
+        email.classList.remove("border-red-500");
+      }
+      if (!password.value.trim()) {
+        if (passwordError) passwordError.style.display = 'block';
+        password.classList.add("border-red-500");
+        valid = false;
+      } else {
+        if (passwordError) passwordError.style.display = 'none';
+        password.classList.remove("border-red-500");
+      }
+      if (!valid) return;
+
+      // Re-check gate at submit time
+      try {
+        const gate = await isLoginEnabled();
+        if (!gate.enabled) {
+          // show inline message and disable form
+          setFormDisabled(true, gate.message);
+          return;
+        }
+
+        // Per-user counselor login-access check by email
+        const access = await isCounselorLoginAllowedByEmail(email.value.trim());
+        if (!access.allowed) {
+          const msg = access.message || 'Your account login is disabled. Please contact the administrator.';
+          const status = document.getElementById('loginStatus');
+          if (status) { status.textContent = msg; status.style.display = 'block'; status.dataset.persistent = 'true'; }
+          if (String(msg || '').toLowerCase().includes('only counselor accounts')) {
+            const emailEl = document.getElementById('email');
+            if (emailEl) emailEl.focus();
+            return;
+          }
+          setFormDisabled(true, msg);
+          return;
+        }
+        // START 2FA FLOW: generate code, show modal, then call login() AFTER successful verification
+        // Verify credentials + role before sending 2FA
+        await verifyCredentialsAndSend2FA(email.value.trim(), password.value);
+      } finally {
+        if (signinBtn) { signinBtn.disabled = false; signinBtn.classList.remove('loading'); }
+      }
+    });
+
+    // Toggle password visibility
+    const togglePassword = document.getElementById("togglePassword");
+    const passwordInput = document.getElementById("password");
+    if (togglePassword && passwordInput) {
+      togglePassword.addEventListener("click", () => {
+        const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
+        passwordInput.setAttribute("type", type);
+        togglePassword.innerHTML = type === "password"
+          ? '<i class="fa-solid fa-eye"></i>'
+          : '<i class="fa-solid fa-eye-slash"></i>';
+      });
+      togglePassword.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+
+    // Auto scroll when input gets focus (mobile fix)
+    const card = document.querySelector(".login-card");
+    document.querySelectorAll("input").forEach(input => {
+      input.addEventListener("focus", () => {
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+      });
+      input.addEventListener("blur", () => {
+        setTimeout(() => {
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 200);
+      });
+    });
+
+    // Clear persistent login status when user starts typing again
+    const emailEl = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+    [emailEl, passwordEl].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const status = document.getElementById('loginStatus');
+        if (status && status.dataset.persistent === 'true') {
+          status.dataset.persistent = 'false';
+          status.style.display = 'none';
+        }
+      });
+    });
+
+    // --- Enhanced 2FA logic ---
+  // Guard: only send 2FA after we've verified the account is an allowed counselor
+  let lastVerifiedCounselor = false;
+  const twoFAModal = document.getElementById('twoFAModal');
+  const twoFAVerify = document.getElementById('twoFAVerify');
+  const twoFAResend = document.getElementById('twoFAResend');
+  const twoFAClose = document.getElementById('twoFAClose');
+    const twoFAError = document.getElementById('twoFAError');
+    const twoFACountdown = document.getElementById('twoFACountdown');
+    const countdownTimer = document.getElementById('countdownTimer');
+    const verificationInputs = document.querySelectorAll('.verification-input');
+
+    let twoFAExpiryTimer = null;
+    let currentPasswordFor2FA = null;
+
+    // Enhanced verification input handling
+    verificationInputs.forEach((input, index) => {
+      // Handle input
+      input.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (value.length === 1 && /[0-9]/.test(value)) {
+          if (index < verificationInputs.length - 1) {
+            verificationInputs[index + 1].focus();
+          } else {
+            input.blur();
+          }
+          twoFAError.style.display = 'none';
+        } else if (value.length > 1) {
+          // Handle paste
+          const pasteValue = value.replace(/\D/g, '').substring(0, 6);
+          pasteValue.split('').forEach((char, charIndex) => {
+            if (verificationInputs[index + charIndex]) {
+              verificationInputs[index + charIndex].value = char;
+            }
+          });
+          if (pasteValue.length === 6) {
+            verificationInputs[5].focus();
+          } else if (index + pasteValue.length < verificationInputs.length) {
+            verificationInputs[index + pasteValue.length].focus();
+          }
+        }
+      });
+
+      // Handle backspace
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !input.value && index > 0) {
+          verificationInputs[index - 1].focus();
+        }
+      });
+
+      // Handle arrow keys
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' && index > 0) {
+          verificationInputs[index - 1].focus();
+        } else if (e.key === 'ArrowRight' && index < verificationInputs.length - 1) {
+          verificationInputs[index + 1].focus();
+        }
+      });
+
+      // Pressing Enter should advance to the next input (common UX expectation)
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (index < verificationInputs.length - 1) {
+            verificationInputs[index + 1].focus();
+          } else {
+            input.blur();
+          }
+        }
+      });
+    });
+
+    function getVerificationCode() {
+      return Array.from(verificationInputs).map(input => input.value).join('');
+    }
+
+    function clearVerificationInputs() {
+      verificationInputs.forEach(input => {
+        input.value = '';
+      });
+      verificationInputs[0].focus();
+    }
+
+    function showTwoFAModal(){
+      if (!twoFAModal) return;
+      twoFAModal.classList.add('active');
+      twoFAModal.setAttribute('aria-hidden','false');
+      clearVerificationInputs();
+      twoFAError.style.display = 'none';
+      verificationInputs[0].focus();
+    }
+    
+    function hideTwoFAModal(){
+      if (!twoFAModal) return;
+      twoFAModal.classList.remove('active');
+      twoFAModal.setAttribute('aria-hidden','true');
+      if (twoFAExpiryTimer) { clearInterval(twoFAExpiryTimer); twoFAExpiryTimer = null; }
+    }
+
+    function generate2FACode(){
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    // Verify email/password without affecting client auth state using Firebase REST API
+    async function verifyCredentialsAndSend2FA(email, password){
+      const status = document.getElementById('loginStatus');
+      if (status) { status.style.display = 'block'; status.textContent = 'Verifying credentials...'; status.dataset.persistent = 'false'; }
+      // First, re-check global gate
+      const gate = await isLoginEnabled();
+      if (!gate.enabled) {
+        if (status) { status.textContent = gate.message || 'Login disabled.'; status.dataset.persistent = 'true'; }
+        return;
+      }
+
+      // NOTE: we intentionally do NOT query the `counselors` node by email before auth
+      // because DB rules often block unauthenticated reads and would throw permission errors.
+      // Instead we validate credentials first (via REST) and then verify counselor status
+      // using the returned idToken + uid so the DB read is authenticated.
+
+      // Use Firebase Auth REST API to validate credentials without changing client SDK auth state
+      try {
+        const API_KEY = 'AIzaSyD4eMHzsieWnIH6nHLgBl1PDTiIETeVmnA';
+        const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+        });
+        const data = await (async () => {
+          try { return await resp.json(); } catch(e){ return { error: { message: 'invalid_response' } }; }
+        })();
+
+        if (!resp.ok) {
+          // Firebase returns 400 with error message on bad credentials
+          const msg = (data && data.error && data.error.message) ? String(data.error.message) : 'Incorrect email or password.';
+          if (status) { status.textContent = msg === 'INVALID_PASSWORD' || msg.includes('INVALID') ? 'Incorrect email or password.' : msg; status.dataset.persistent = 'true'; }
+          return;
+        }
+
+        // At this point credentials are valid. Use the idToken to query the DB as an authenticated
+        // client and verify the counselor record by UID.
+        const uid = data.localId || data.userId;
+        const idToken = data.idToken || data.id_token || null;
+        if (!uid || !idToken) {
+          if (status) { status.textContent = 'Unable to verify account. Please try again.'; status.dataset.persistent = 'true'; }
+          return;
+        }
+
+        // Verify counselor record using REST DB query authenticated with idToken
+        const accessByUid = await verifyCounselorByUidUsingIdToken(idToken, uid);
+        if (!accessByUid.allowed) {
+          if (status) { status.textContent = accessByUid.message || 'Your account login is disabled. Please contact admin.'; status.dataset.persistent = 'true'; }
+          return;
+        }
+
+        // All good — mark verified and send 2FA and show modal
+        lastVerifiedCounselor = true;
+        if (status) { status.textContent = 'Sending verification code...'; status.dataset.persistent = 'false'; }
+        startTwoFA(email, password);
+      } catch (err) {
+        console.error('verifyCredentials error', err);
+        if (status) { status.textContent = 'Verification failed. Please try again.'; status.dataset.persistent = 'true'; }
+        return;
+      }
+    }
+
+    // EmailJS configuration - replace placeholders with your EmailJS credentials
+    const EMAILJS_CONFIG = {
+      //PUBLIC_KEY: "En395SjR7Jg57-J8u",
+      SERVICE_ID: "service_jlchmap",
+      TEMPLATE_ID: "template_1qcpgyr"
+    };
+
+    // Helper: verify counselor record using Realtime DB REST API and an idToken
+    // This allows an authenticated DB read without signing the client SDK in.
+    async function verifyCounselorByUidUsingIdToken(idToken, uid) {
+      try {
+        const dbUrl = 'https://rsu-safespace-default-rtdb.firebaseio.com';
+        const orderBy = encodeURIComponent('"uid"');
+        const equalTo = encodeURIComponent('"' + String(uid) + '"');
+        const url = `${dbUrl}/counselors.json?orderBy=${orderBy}&equalTo=${equalTo}&auth=${encodeURIComponent(idToken)}`;
+        const resp = await fetch(url, { method: 'GET' });
+        if (!resp.ok) {
+          console.warn('verifyCounselorByUidUsingIdToken failed', resp.status, resp.statusText);
+          return { allowed: false, message: 'Unable to verify counselor status. Please try again later.' };
+        }
+        const data = await resp.json().catch(() => null);
+        if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+          return { allowed: false, message: 'Only counselor accounts can sign in here. Please contact admin.' };
+        }
+
+        // Data is an object mapping keys to records; check any record for login permission.
+        // Be permissive for common "active/ok/enabled" values, but block when there
+        // are explicit disable flags like login_access === false or login === 'disable'
+        for (const k of Object.keys(data)) {
+          const v = data[k] || {};
+          const statusRaw = String(v.status || '').toLowerCase();
+          const loginFlag = String(v.login || '').toLowerCase();
+          const loginAccess = v.login_access;
+
+          // Explicit disable indicators
+          const explicitDisable = (loginAccess === false) || (loginFlag === 'disable' || loginFlag === 'disabled') || (statusRaw === 'disabled') || (statusRaw === 'blocked');
+
+          // Explicit enable indicators (admin set to allow immediate login)
+          const explicitEnable = (statusRaw === 'enabled');
+
+          // Legacy/acceptable active-like states: treat as allowed but still subject to 2FA
+          const activeLike = (statusRaw === 'active' || statusRaw === 'ok' || statusRaw === '');
+
+          if (explicitDisable) {
+            // this record is explicitly disabled; continue checking other records
+            continue;
+          }
+
+          if (explicitEnable) {
+            // Admin explicitly marked 'enabled' -> allow and indicate freeLogin where needed
+            return { allowed: true, freeLogin: true };
+          }
+
+          if (activeLike) {
+            // allowed but not free-login (keep 2FA flow intact)
+            return { allowed: true, freeLogin: false };
+          }
+        }
+
+        return { allowed: false, message: 'Your account login is disabled. Please contact admin.' };
+      } catch (e) {
+        console.error('verifyCounselorByUidUsingIdToken error', e);
+        return { allowed: false, message: 'Unable to verify counselor status. Please try again later.' };
+      }
+    }
+
+    // Initialize EmailJS (makes `emailjs` global available)
+    try { emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY); } catch (e) { /* ignore if sdk not loaded yet */ }
+
+    // Send 2FA via EmailJS (client-side). This does not verify server-side; code is stored in sessionStorage.
+    function send2FACodeToUser(email){
+      const code = generate2FACode();
+      const expiry = Date.now() + 5*60*1000; // 5 minutes
+      sessionStorage.setItem('safe_2fa_code', code);
+      sessionStorage.setItem('safe_2fa_expiry', String(expiry));
+
+      const status = document.getElementById('loginStatus');
+
+      // Prepare template params - ensure your EmailJS template uses these fields
+      const templateParams = {
+        to_email: email,
+        verification_code: code,
+        expiration_time: '5 minutes'
+      };
+
+      // Try to send via EmailJS. If it fails, we still keep the code in sessionStorage for local testing.
+      (async () => {
+        try {
+          if (!email || !String(email).trim()) {
+            if (status) { status.textContent = 'Email address is required to send verification code.'; status.style.display = 'block'; }
+            return;
+          }
+          if (!window.emailjs) throw new Error('EmailJS SDK not loaded');
+          console.log('EmailJS templateParams:', templateParams);
+          const resp = await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, templateParams);
+          console.log('EmailJS send response:', resp);
+          if (status) {
+            status.textContent = `Verification code sent to ${email}`;
+            status.style.display = 'block';
+            status.dataset.persistent = 'false';
+          }
+        } catch (err) {
+          // EmailJS returns an object with status and text; log both to help diagnose template issues
+          console.warn('EmailJS send failed, falling back to test-mode. Error:', err);
+          try { console.warn('EmailJS error details:', err && err.status, err && err.text); } catch (e) {}
+          if (status) {
+            status.textContent = `Test mode: verification code: ${code}`;
+            status.style.display = 'block';
+            status.dataset.persistent = 'false';
+          }
+        } finally {
+          startTwoFACountdown(expiry);
+        }
+      })();
+    }
+
+    function startTwoFACountdown(expiry){
+      if (twoFAExpiryTimer) clearInterval(twoFAExpiryTimer);
+      twoFAResend.disabled = true;
+      
+      function update(){
+        const now = Date.now();
+        const remaining = Math.max(0, expiry - now);
+        const mm = String(Math.floor(remaining/60000)).padStart(2,'0');
+        const ss = String(Math.floor((remaining%60000)/1000)).padStart(2,'0');
+        if (countdownTimer) countdownTimer.textContent = `${mm}:${ss}`;
+        
+        if (remaining <= 0){
+          clearInterval(twoFAExpiryTimer); 
+          twoFAExpiryTimer = null;
+          twoFACountdown.classList.add('expired');
+          twoFAResend.disabled = false;
+        }
+      }
+      update();
+      twoFAExpiryTimer = setInterval(update, 1000);
+    }
+
+    async function startTwoFA(email, password){
+      // Safety: ensure the account was recently verified as a counselor
+      if (!lastVerifiedCounselor) {
+        const status = document.getElementById('loginStatus');
+        if (status) { status.textContent = 'Account not authorized to receive verification code.'; status.style.display = 'block'; status.dataset.persistent = 'true'; }
+        return;
+      }
+
+      // disable the form while 2FA in progress
+      setFormDisabled(true, 'Verification code required to continue.');
+      currentPasswordFor2FA = password; // kept in memory only
+      // Clear the guard so subsequent unrelated calls won't reuse it
+      lastVerifiedCounselor = false;
+      send2FACodeToUser(email);
+      showTwoFAModal();
+    }
+
+    // Client-side validation against sessionStorage (used with EmailJS flow)
+    async function validateEntered2FACode(input){
+      try {
+        const stored = sessionStorage.getItem('safe_2fa_code');
+        const expiry = Number(sessionStorage.getItem('safe_2fa_expiry') || '0');
+        if (!stored) return { ok:false, reason:'no-code' };
+        if (Date.now() > expiry) return { ok:false, reason:'expired' };
+        if (String(input).trim() !== stored) return { ok:false, reason:'mismatch' };
+        // success
+        sessionStorage.removeItem('safe_2fa_code');
+        sessionStorage.removeItem('safe_2fa_expiry');
+        return { ok:true };
+      } catch (err) {
+        console.error('validateEntered2FACode error', err);
+        return { ok:false, reason:'server' };
+      }
+    }
+
+    twoFAVerify.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      const twoFAVerifyBtn = document.getElementById('twoFAVerify');
+      if (twoFAVerifyBtn) { twoFAVerifyBtn.disabled = true; twoFAVerifyBtn.classList.add('loading'); }
+      const code = getVerificationCode();
+      if (code.length !== 6) {
+        twoFAError.textContent = 'Please enter the complete 6-digit code.';
+        twoFAError.style.display = 'block';
+        if (twoFAVerifyBtn) { twoFAVerifyBtn.disabled = false; twoFAVerifyBtn.classList.remove('loading'); }
+        return;
+      }
+      
+      try {
+        const result = await validateEntered2FACode(code);
+        if (!result.ok){
+          twoFAError.style.display = 'block';
+          twoFAError.textContent = result.reason === 'expired' ? 'Code expired. Please resend.' : (result.reason === 'server' ? 'Verification failed. Try again.' : 'Incorrect code.');
+          clearVerificationInputs();
+          return;
+        }
+        twoFAError.style.display = 'none';
+        // Keep the modal open and spinner visible until the app's auth watcher
+        // confirms the login and performs the redirect. This prevents the modal
+        // from closing prematurely. We set a short sign-in status so user sees
+        // progress while login completes.
+        const status = document.getElementById('loginStatus');
+        if (status) { status.textContent = 'Signing you in...'; status.style.display = 'block'; status.dataset.persistent = 'false'; }
+        // Re-enable form UI is deferred until redirect; keep inputs disabled to avoid changes
+        setFormDisabled(true, 'Signing in...');
+        try {
+          const email = document.getElementById('email');
+          // mark awaiting redirect (optional flag for diagnostics)
+          window.__awaitingRedirect = true;
+          await login(email.value.trim(), currentPasswordFor2FA);
+          // Log activity after successful login
+          try {
+            const { recordActivity } = await import('./main.js');
+            await recordActivity({
+              icon: "🔑",
+              title: "Logged in to SafeSpace",
+              subtitle: new Date().toLocaleString(),
+              meta: "login"
+            });
+          } catch (e) { console.warn('Failed to record login activity', e); }
+          // Redirect handled by watchAuth
+        } catch (err) {
+          const status = document.getElementById('loginStatus');
+          if (status) {
+            status.textContent = 'Incorrect email or password.';
+            status.style.display = 'block';
+            status.dataset.persistent = 'true';
+          }
+        } finally {
+          // Clear sensitive in-memory password
+          currentPasswordFor2FA = null;
+        }
+      } finally {
+        if (twoFAVerifyBtn) { twoFAVerifyBtn.disabled = false; twoFAVerifyBtn.classList.remove('loading'); }
+      }
+    });
+
+    twoFAResend.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const email = document.getElementById('email');
+      if (!email || !email.value.trim()) return;
+      send2FACodeToUser(email.value.trim());
+      clearVerificationInputs();
+      twoFAError.style.display = 'none';
+    });
+    // Close handler: only via explicit close button
+    if (twoFAClose) {
+      twoFAClose.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        hideTwoFAModal();
+        setFormDisabled(false);
+        currentPasswordFor2FA = null;
+      });
+    }
+
+    // --- Forgot password handler ---
+    const FIREBASE_API_KEY = 'AIzaSyD4eMHzsieWnIH6nHLgBl1PDTiIETeVmnA';
+
+    async function sendPasswordResetEmail(email) {
+      const status = document.getElementById('loginStatus');
+      try {
+        if (status) { status.style.display = 'block'; status.textContent = 'Sending password reset link...'; }
+        setFormDisabled(true, 'Sending password reset...');
+        const url = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: String(email).trim() })
+        });
+
+        // Capture raw response for better debugging (some browsers show only the status)
+        const rawText = await resp.text().catch(() => '');
+        let data = {};
+        try { data = rawText ? JSON.parse(rawText) : {}; } catch(e) { data = { raw: rawText }; }
+
+        if (!resp.ok) {
+          // Map common Firebase error codes to friendlier messages
+          const code = data && data.error && data.error.message ? String(data.error.message) : null;
+          let msg = 'Failed to send reset email.';
+          if (code) {
+            if (code === 'EMAIL_NOT_FOUND') msg = 'No account found with that email address.';
+            else if (code === 'INVALID_EMAIL') msg = 'Please enter a valid email address.';
+            else if (code === 'USER_DISABLED') msg = 'This account has been disabled.';
+            else msg = code;
+          } else if (rawText) {
+            msg = rawText;
+          }
+
+          console.warn('sendPasswordResetEmail failed', { status: resp.status, statusText: resp.statusText, body: data });
+          if (status) { status.textContent = msg; status.dataset.persistent = 'true'; }
+          return { ok: false, msg };
+        }
+
+        if (status) { status.textContent = `Password reset email sent to ${email}. Check your inbox.`; status.dataset.persistent = 'false'; }
+        return { ok: true };
+      } catch (err) {
+        console.error('sendPasswordResetEmail error', err);
+        if (status) { status.textContent = 'Failed to send password reset. Please try again later.'; status.dataset.persistent = 'true'; }
+        return { ok: false, msg: String(err && err.message ? err.message : err) };
+      } finally {
+        setTimeout(() => setFormDisabled(false), 800);
+      }
+    }
+
+    // Wire the forgot link: prefer the email field value, open a custom modal otherwise
+    const forgotLink = document.getElementById('forgotLink');
+    if (forgotLink) {
+      forgotLink.addEventListener('click', async function (ev) {
+        ev.preventDefault();
+        const emailEl = document.getElementById('email');
+        const prefill = (emailEl && emailEl.value && String(emailEl.value).trim()) ? String(emailEl.value).trim() : '';
+
+        // Create modal overlay dynamically using existing modal styles
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.id = 'forgotModal';
+        overlay.innerHTML = `
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="forgotTitle">
+            <button class="modal-close" aria-label="Close">&times;</button>
+            <h3 id="forgotTitle">Reset your password</h3>
+            <p>Enter the email address for your account to receive a password reset link.</p>
+            <div style="margin-top:10px">
+              <input id="forgotEmailInput" type="email" placeholder="you@example.com" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e5e7eb" />
+            </div>
+            <p id="forgotError" style="color:#b91c1c;display:none;margin-top:8px;font-size:0.95rem"></p>
+            <div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+              <button id="forgotCancelBtn" class="modal-btn secondary">Cancel</button>
+              <button id="forgotSendBtn" class="modal-btn primary">Send reset link</button>
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+
+        const closeBtn = overlay.querySelector('.modal-close');
+        const cancelBtn = overlay.querySelector('#forgotCancelBtn');
+        const sendBtn = overlay.querySelector('#forgotSendBtn');
+        const input = overlay.querySelector('#forgotEmailInput');
+        const error = overlay.querySelector('#forgotError');
+
+        // Prefill if available
+        if (prefill) input.value = prefill;
+        input.focus();
+
+        function cleanup() {
+          try { overlay.remove(); } catch (_) { overlay.style.display = 'none'; }
+        }
+
+        if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); cleanup(); });
+        if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.preventDefault(); cleanup(); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
+        document.addEventListener('keydown', function escHandler(e){ if(e.key === 'Escape'){ cleanup(); document.removeEventListener('keydown', escHandler); } });
+
+        sendBtn.addEventListener('click', async (ev2) => {
+          ev2.preventDefault();
+          const email = input.value && String(input.value).trim();
+          if (!email) { error.textContent = 'Please enter an email address.'; error.style.display = 'block'; input.focus(); return; }
+          // disable while sending
+          sendBtn.disabled = true; cancelBtn.disabled = true; input.disabled = true;
+          const res = await sendPasswordResetEmail(email);
+          if (res && res.ok) {
+            cleanup();
+          } else {
+            error.textContent = (res && res.msg) ? res.msg : 'Failed to send password reset.';
+            error.style.display = 'block';
+            sendBtn.disabled = false; cancelBtn.disabled = false; input.disabled = false;
+            input.focus();
+          }
+        });
+      });
+    }
+  </script>
+
+</body>
+</html>

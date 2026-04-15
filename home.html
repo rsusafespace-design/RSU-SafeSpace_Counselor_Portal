@@ -1,0 +1,3690 @@
+<!doctype html>
+<html lang="en">
+<head>
+   <script type="module">
+    import { watchAuth, showUserInfo } from "./main.js";
+
+    let currentUserId = null;
+    
+    watchAuth(user => {
+      if (!user || user.isAnonymous || !user.email) {
+        // Clear any cached user data
+        currentUserId = null;
+        sessionStorage.clear();
+        window.location.replace("counselor_login.html");
+      } else {
+        // Check if this is a different user than before
+        if (currentUserId && currentUserId !== user.uid) {
+          // Clear cached data when switching users
+          sessionStorage.clear();
+          localStorage.removeItem('cachedUserInfo');
+          console.log('User switched, clearing cached data');
+        }
+        currentUserId = user.uid;
+        
+        // Force refresh user info
+        showUserInfo(user).catch(error => {
+          console.error('Error showing user info:', error);
+          // Fallback to basic display
+          document.getElementById('greeting').textContent = 'Good Day, Counselor 👋';
+          document.getElementById('sidebarUserName').textContent = 'Counselor';
+          document.getElementById('userAvatar').textContent = 'C';
+        });
+      }
+    });
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>SafeSpace — Counselor Portal</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Basic CSS only, no frameworks */
+    /* Notification dropdown styles */
+  .notification-badge{
+    position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 6px;border-radius:999px;display:none;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:12px;font-weight:700;box-shadow:0 6px 14px rgba(2,6,23,0.18);z-index:30}
+  .notification-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:360px;max-width:calc(100vw - 32px);background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(2,6,23,0.16);border:1px solid rgba(2,6,23,0.06);z-index:1200;overflow:hidden;color:#111827;font-size:14px;display:none}
+  .notification-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f1f4f7}
+  .notification-header h3{margin:0;font-size:16px;font-weight:800;color:#0f172a}
+  .notification-actions{display:flex;gap:12px}
+  .notification-actions button{background:transparent;border:0;color:#6b7280;cursor:pointer;font-weight:700;font-size:13px}
+  .notification-actions button:hover{color:#374151}
+  .notification-list{max-height:360px;overflow:auto;background:#fff}
+  .notification-empty{display:flex;gap:12px;align-items:center;flex-direction:column;padding:28px 16px;color:var(--muted)}
+  .notification-item{display:flex;gap:12px;padding:14px 16px;align-items:flex-start;border-bottom:1px solid #f5f7fa;cursor:pointer}
+  .notification-item.unread{background:#eef6ff}
+  .notification-icon{width:44px;height:44px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:#f3f4f6;color:var(--green);font-size:18px;flex-shrink:0}
+  .notification-icon.info{background:#e6f0ff;color:#1e40af}
+  .notification-icon.success{background:#ecfdf5;color:#047857}
+  .notification-icon.warning{background:#fff7ed;color:#b45309}
+  .notification-icon.alert{background:#fff1f2;color:#b91c1c}
+  .notification-content{flex:1}
+  .notification-title{font-weight:800;font-size:14px;margin-bottom:6px;color:#0f172a}
+  .notification-message{font-size:13px;color:#374151;line-height:1.35}
+  .notification-time{font-size:12px;color:#94a3b8;margin-top:8px}
+  .notification-footer{padding:12px;border-top:1px solid #f1f4f7;text-align:center;background:#fff}
+  .notification-footer button{background:transparent;border:0;color:#0f7a34;font-weight:800;padding:8px 12px;cursor:pointer}
+
+  /* Thin custom scrollbar for the dropdown list */
+  .notification-list::-webkit-scrollbar{width:10px}
+  .notification-list::-webkit-scrollbar-track{background:transparent}
+  .notification-list::-webkit-scrollbar-thumb{background:#e6eef6;border-radius:999px;border:3px solid transparent;background-clip:padding-box}
+ 
+    :root{
+      --green:#0f7a34;
+      --panel:#ffffff;
+      --muted:#6b7280;
+      --bg:#f4f6fb;
+      --card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+      --radius:10px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial, Helvetica, sans-serif;background:var(--bg);color:#111}
+    .app{display:flex;min-height:100vh}
+
+    /* Sidebar */
+    .sidebar{
+      /* sticky sidebar on desktop */
+      width:250px;
+      background:#f0f3f6;
+      border-right:1px solid rgba(0,0,0,0.06);
+      display:flex;flex-direction:column;
+      position:sticky;
+      top:0;
+      height:100vh;
+      overflow:auto;
+      z-index:40;
+    }
+    .sidebar .top {
+      display:flex;align-items:center;justify-content:space-between;padding:13px 20px;
+      background:var(--green);color:#fff;
+    }
+    .logo{font-weight:800;font-size:20px}
+    .burger{background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer;padding:6px}
+
+     .nav{padding:12px;display:flex;flex-direction:column;gap:8px}
+    .nav button{
+      display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;
+      text-align:left;color:#1f2937;font-weight:400;
+    }
+    .nav .label {
+  font-size: 15px; /* change to any px you want */
+}
+    .nav button.active{background:rgba(15,122,52,0.08);color:var(--green)}
+    .nav .icon{width:28px;text-align:center}
+
+    /* larger sidebar icons */
+    .nav .icon{
+      width:56px;                /* wider hit area */
+      text-align:center;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:26px;           /* make emoji / icon glyphs larger */
+      line-height:1;
+    }
+
+    /* increase touch/click area for nav buttons */
+    .nav button{
+      padding:12px 10px;
+      gap:14px;
+    }
+
+    /* when sidebar is collapsed keep icons centered and large */
+    body.collapsed .nav .icon{
+      width:56px;
+      font-size:26px;
+      justify-content:center;
+    }
+    body.collapsed .nav button{ justify-content:center; padding:12px 6px; }
+
+    /* mobile: keep icons visible and slightly smaller to fit */
+    @media (max-width:720px){
+      .nav .icon{ width:56px; font-size:22px; }
+      .icon-btn{ font-size:24px; }
+      .avatar{ width:68px; height:68px; font-size:20px; }
+    }
+
+    .sidebar .bottom{margin-top:auto;padding:12px;border-top:1px solid rgba(0,0,0,0.04)}
+    .logged{font-size:13px;color:#374151}
+
+    /* Collapsed sidebar (icon-only) */
+    body.collapsed .sidebar{width:80px}
+    body.collapsed .nav button .label{display:none}
+    body.collapsed .sidebar .bottom .logged{display:none}
+    body.collapsed .sidebar .top .logo{display:none}
+
+    /* Ensure the footer Settings button behaves the same as .nav items when collapsed */
+    body.collapsed .sidebar .bottom .nav-item .label { display: none; }
+    body.collapsed .sidebar .bottom .nav-item {
+      justify-content: center;
+      padding: 12px 6px;
+      gap: 0;
+    }
+    /* make sure the footer icon keeps the same size/centering as the main nav icons */
+    body.collapsed .sidebar .bottom .nav-item .icon {
+      width: 56px;
+      font-size: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Main area */
+    .main{flex:1;display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:35px 32px;background:var(--green);color:#fff;
+      /* make topbar sticky so it stays visible while content scrolls */
+      position:sticky;
+      top:0;
+      z-index:50;
+      /* subtle backdrop so content under topbar doesn't show through on supported browsers */
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .brand{display:flex;flex-direction:column}
+    .brand .title{font-size:28px;font-weight:800;line-height:1}
+    .brand .sub{font-size:13px;opacity:0.95}
+
+    .top-right{display:flex;align-items:center;gap:12px}
+  .icon-btn{background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer}
+  /* Increase avatar size on desktop to 72px as requested */
+  .avatar{width:7px;height:7px;border-radius:50%;background:#fff;color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:80}
+
+  /* Avatar: restore white background and subtle shadow for contrast on colorful card */
+  .avatar, #userAvatar { background: #ffffff !important; border: 0 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+    /* Image overrides (override inline styles) */
+    .avatar img, #userAvatarImg, #profileDropdownAvatar img {
+      border: 0 !important;
+      box-shadow: none !important;
+      display: block !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      border-radius: 50% !important;
+    }
+    /* Slightly smaller avatar on phones */
+    @media (max-width:480px){
+      .avatar, #userAvatar { width:44px !important; height:44px !important; }
+    }
+
+    /* Profile dropdown (matches provided screenshot design) */
+    .profile-dropdown {
+      position: absolute;
+      right: 16px;
+      top: 56px;
+      /* ideal desktop width, but stay responsive on small screens */
+      width: 280px;
+      min-width: 310px;
+      max-width: calc(100vw - 32px);
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(2,6,23,0.16);
+      border: 1px solid rgba(2,6,23,0.06);
+      z-index: 1200;
+      overflow: hidden;
+      color: #111827;
+      font-size: 14px;
+    }
+    .profile-dropdown .pd-head{display:flex;gap:16px;align-items:center;padding:18px 18px 14px 18px;border-bottom:1px solid #f1f4f7}
+    .pd-head .pd-avatar{width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid rgba(2,6,23,0.04);background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green)}
+    .pd-head .pd-meta{min-width:0}
+    .pd-head .pd-meta .pd-name{font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-head .pd-meta .pd-email{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .profile-dropdown .pd-list{padding:8px 0}
+    .profile-dropdown .pd-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid #f1f4f7;background:transparent;color:#111827;text-decoration:none;cursor:pointer}
+    .profile-dropdown .pd-item:first-of-type{border-top:0}
+    .profile-dropdown .pd-item:hover{background:#f8fafc}
+    .profile-dropdown .pd-item .pd-icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--green);font-size:16px}
+    .profile-dropdown .pd-item .pd-label{flex:1;font-weight:600}
+    .profile-dropdown .pd-item .pd-caret{color:rgba(0,0,0,0.4)}
+
+    .profile-dropdown .pd-footer{background:var(--green);color:#fff;padding:12px 16px;text-align:center;font-weight:800}
+    .profile-dropdown .pd-footer button{background:transparent;border:0;color:inherit;font-weight:800;cursor:pointer;width:100%}
+
+    /* Content grid */
+    .content{padding:20px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+
+    /* Ensure grid rows are uniform and cards stretch to fill */
+    .grid {
+      /* keep existing columns but make implicit rows equal height */
+      grid-auto-rows: minmax(140px, 1fr);
+      align-items: start; /* ensure items start in their cell */
+    }
+
+    /* Make each card fill its grid cell and layout content vertically */
+    .card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* Allow card body to grow so footer/buttons stay aligned at bottom */
+    .card .body {
+      flex: 1 1 auto;
+    }
+
+    /* If cards have footer buttons (like View All), keep them aligned bottom */
+    .card .view-btn,
+    .card .btn-row {
+      margin-top: 12px;
+      align-self: stretch;
+    }
+
+    .card{
+      background:var(--panel);border-radius:var(--radius);box-shadow:var(--card-shadow);
+      padding:14px;grid-column:span 6;
+    }
+    .card h3{margin:0 0 8px 0;font-size:16px}
+    .card .body{font-size:14px;color:#111}
+    /* Make Events "View All" match Appointments button (full-width blue) */
+    .events.card { display:flex; flex-direction:column; }
+    .events .body { flex: 1 1 auto; }
+    .events .view-btn { margin-top:12px; align-self:stretch; }
+    .events .view-btn .btn {
+      display:block;
+      width:100%;
+      padding:12px 18px;
+      border-radius:12px;
+      background:#2563eb;        /* same blue as appointments */
+      color:#fff;
+      font-weight:700;
+      border:0;
+      cursor:pointer;
+      text-align:center;
+    }
+    .events .view-btn .btn:hover { filter:brightness(.95); }
+
+    /* Specific layout */
+    .appointments{grid-column:span 6}
+    .appointment{display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid #f1f4f7;cursor:pointer}
+    .appt-time{width:90px;color:var(--muted);font-weight:700}
+    .appt-info{flex:1}
+    .view-btn{text-align:center;margin-top:12px}
+    .btn{background:#2563eb;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
+
+    .calendar{grid-column:span 6}
+    .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;color:var(--muted);font-weight:700;text-align:center}
+    .cal-cells{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:8px}
+    .cal-cell{min-height:48px;border-radius:8px;padding:6px;text-align:right;color:#374151}
+    .cal-cell.highlight{background:linear-gradient(180deg,#ecfdf5,#bbf7d0);font-weight:700}
+    .cal-cell.today{border:2px solid rgba(37,99,235,0.18)}
+
+    /* Enhanced calendar day content */
+    .day-content { height: 100%; display: flex; flex-direction: column; align-items: flex-end; position: relative; }
+    .day-number { font-size: 12px; font-weight: 600; margin-bottom: 1px; }
+    .appt-badge {
+      background: #059669; color: white; border-radius: 50%; width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center; font-size: 10px;
+      font-weight: 700; position: absolute; top: 4px; left: 6px; box-shadow:0 6px 12px rgba(2,6,23,0.06);
+    }
+    .appt-badge--confirmed{ background: linear-gradient(180deg,#10b981,#059669); }
+    .appt-badge--pending{ background: linear-gradient(180deg,#fef3c7,#f59e0b); color:#111 }
+    .appt-badge--missed{ background: linear-gradient(180deg,#fecaca,#ef4444); }
+    .appt-badge--ongoing{ background: linear-gradient(180deg,#ffedd5,#fb923c); }
+    .appt-badge--rescheduled{ background: linear-gradient(180deg,#ede9fe,#7c3aed); }
+    .appt-badge--default{ background: linear-gradient(180deg,#e6eef7,#c7d2fe); color:#111 }
+
+    .status-pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
+    .status-pill--confirmed{background:#ecfdf5;color:#059669}
+    .status-pill--pending{background:#fffbeb;color:#b45309}
+    .status-pill--missed{background:#fff1f2;color:#b91c1c}
+    .status-pill--ongoing{background:#fff7ed;color:#c2410c}
+    .status-pill--rescheduled{background:#f5f3ff;color:#5b21b6}
+    .status-pill--default{background:#f1f5f9;color:#334155}
+    .appt-details {
+      font-size: 1px; color: #374151; text-align: right; line-height: 1.1;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .appt-more {
+      font-size: 7px; color: #6b7280; text-align: right; margin-top: 0px;
+    }
+
+    .reminders{grid-column:span 6}
+    .add-task{display:flex;gap:8px;margin-bottom:10px}
+    .add-task input{flex:1;padding:8px;border-radius:8px;border:1px solid #e6eef7}
+    .add-task button{padding:8px 12px;border-radius:8px;border:0;background:#10b981;color:#fff;cursor:pointer}
+
+    .task{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f3f4f6}
+    .task .left{display:flex;align-items:center;gap:8px}
+    .task .text.done{text-decoration:line-through;color:var(--muted)}
+
+  .events{grid-column:span 6}
+  .events-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+  .events-list li{padding:10px;border-radius:8px;border:1px solid #f3f4f6;cursor:pointer}
+  .event-title{font-weight:700}
+  .event-meta{font-size:13px;color:var(--muted)}
+
+  /* Recent Activity styles (replacement for Upcoming Events) */
+  .recent-activity{grid-column:span 6; display:flex; flex-direction:column}
+  .recent-activity h3{display:flex;align-items:center;gap:8px}
+  /* body becomes a flex column so the list can grow and scroll internally */
+  .recent-activity .body{display:flex;flex-direction:column;flex:1;padding:0 0 8px 0;min-height:0}
+  .activity-list{list-style:none;margin:0;padding:12px 12px 6px 12px;display:flex;flex-direction:column;gap:12px}
+  .activity-item{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:8px;background:#fff;border:1px solid #f3f4f6}
+  .activity-icon{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-size:18px;flex-shrink:0;color:var(--green)}
+  .activity-content{flex:1}
+  .activity-title{font-weight:700;margin-bottom:4px;font-size:14px}
+  .activity-sub{font-size:13px;color:var(--muted);margin-bottom:2px}
+  .activity-time{font-size:12px;color:#6b7280}
+  /* footer pinned to bottom of card */
+  .activity-footer{padding:12px 14px;text-align:center;border-top:1px solid #f3f4f6;background:transparent;flex-shrink:0}
+  .activity-footer a{color:#10b981;font-weight:700;text-decoration:none;display:inline-flex;gap:8px;align-items:center}
+  .activity-footer a:hover{text-decoration:underline}
+
+  /* make sure internal list scrollbars look subtle */
+  .activity-list::-webkit-scrollbar{width:10px;height:10px}
+  .activity-list::-webkit-scrollbar-track{background:transparent}
+  .activity-list::-webkit-scrollbar-thumb{background:rgba(16,24,40,0.06);border-radius:10px}
+  /* for Firefox */
+  .activity-list{scrollbar-width:thin;scrollbar-color:rgba(16,24,40,0.06) transparent}
+
+  /* Scrollable wrapper for Recent Activity (match Reminders) */
+  .recent-activity .card-scroll{
+    max-height:300px; /* adjust as needed */
+    overflow:auto;
+    padding-right:6px;
+  }
+  .recent-activity .card-scroll::-webkit-scrollbar{width:10px}
+  .recent-activity .card-scroll::-webkit-scrollbar-thumb{background:#e6eef7;border-radius:8px}
+  .recent-activity .card-scroll::-webkit-scrollbar-track{background:transparent}
+
+    /* Greeting area */
+    .greeting-card{grid-column:span 12;padding:16px;margin-bottom:6px;border-radius:var(--radius);background:var(--panel);box-shadow:var(--card-shadow);display:flex;justify-content:space-between;align-items:center}
+
+    /* Responsive */
+    @media(max-width:1000px){
+      .grid{grid-template-columns:repeat(8,1fr)}
+      .appointments,.calendar{grid-column:span 8; grid-row: span 1;}
+      .reminders{grid-column:span 8}
+      .events{grid-column:span 8}
+    }
+    @media(max-width:720px){
+      /* On small screens sidebar becomes an off-canvas panel.
+         It is hidden by default and toggled with the burger (see JS change below). */
+      .sidebar{
+        width:260px; /* panel width when open */
+        position:fixed;
+        left:0;
+        top:0;
+        height:100vh;
+        transform:translateX(-100%);
+        transition:transform .28s ease;
+        box-shadow:0 12px 40px rgba(2,6,23,0.12);
+        background:#f0f3f6;
+      }
+      /* when the body has .show-sidebar the off-canvas becomes visible */
+      body.show-sidebar .sidebar{ transform:translateX(0); }
+
+      /* make sure content isn't overlapped when sidebar is fixed/hidden */
+      .main{ margin-left:0; }
+      .nav button .label{display:none}
+      .brand .title{font-size:20px}
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .card{padding:12px}
+      .appointments,.calendar{grid-column:span 6; grid-row: span 1;}
+      .reminders,.events{grid-column:span 6}
+
+      /* Hide calendar and Messages nav item on phone / small screens */
+      .calendar { display: none !important; }
+      /* REMOVED: .nav .nav-item[data-name="Messages"] { display: none !important; } */
+    }
+
+    /* Appointments list styling (match provided design) */
+    .appointments .body { padding: 6px 0 0 0; }
+    .appointments .appointment {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #eef2f6;
+      background: transparent;
+    }
+    .appointments .appointment:last-child { border-bottom: none; }
+    .appointments .appt-time {
+      width: 110px;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .appointments .appt-info { flex: 1; font-size: 14px; color: #111; }
+    .appointments .appt-info .appt-name { font-weight:600; }
+    .appointments .status-badge {
+      white-space:nowrap;
+      font-size:13px;
+      font-weight:700;
+      padding:6px 10px;
+      border-radius:999px;
+      background:transparent;
+    }
+    .appointments .status-badge.today { color:#059669; }     /* green */
+    .appointments .status-badge.tomorrow { color:#7c3aed; }  /* purple */
+    .appointments .status-badge.upcoming { color:#0891b2; }  /* cyan */
+    .appointments .view-btn { margin-top:14px; }
+    .appointments .view-btn .btn {
+      display:block;
+      width:100%;
+      padding:12px 18px;
+      border-radius:12px;
+      background:#2563eb;
+      color:#fff;
+      font-weight:700;
+      border:0;
+      cursor:pointer;
+    }
+    .appointments .view-btn .btn:hover { filter:brightness(.96); }
+
+    /* make sure card still stretches in the grid */
+    .appointments.card { display:flex; flex-direction:column; }
+    .appointments .body { flex:1 1 auto; }
+
+    /* To-Do / Reminders card (full UI) */
+    .reminders .body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Scrollable area inside reminders card (keeps footer visible) */
+    .reminders .card-scroll{
+      max-height: 300px; /* adjust as needed */
+      overflow:auto;
+      padding-right:6px; /* room for scrollbar */
+    }
+    .reminders .card-scroll::-webkit-scrollbar{width:10px}
+    .reminders .card-scroll::-webkit-scrollbar-thumb{background:#e6eef7;border-radius:8px}
+    .reminders .card-scroll::-webkit-scrollbar-track{background:transparent}
+    .reminders h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .reminders .task {
+      padding: 10px 12px;
+      border: 1px solid #e6eef7;
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .reminders .task.done {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .reminders .task .text {
+      flex: 1;
+      margin-right: 12px;
+    }
+    .reminders .task .due {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .reminders .task button {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .reminders .task button.edit {
+      background: #2563eb;
+      color: #fff;
+    }
+    .reminders .task button.delete {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    /* Content grid - make base row height smaller and make appointments/calendar single-row */
+    .grid {
+      grid-auto-rows: minmax(10px, 1fr); /* reduced base row height (was 140px) */
+      align-items: start;
+    }
+
+    /* Make appointments + calendar shorter (single row) */
+    .appointments,
+    .calendar {
+      grid-row: span 1; /* was span 2 */
+    }
+
+    /* Keep other cards single-row */
+    .reminders,
+    .events {
+      grid-row: span 1;
+    }
+
+    /* Responsive: on narrower screens force single-row stacking */
+    @media (max-width:1000px){
+      .grid{grid-template-columns:repeat(8,1fr)}
+      .appointments,.calendar{grid-column:span 8; grid-row: span 1;}
+      .reminders{grid-column:span 8}
+      .events{grid-column:span 8}
+    }
+    @media (max-width:720px){
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .appointments,.calendar{grid-column:span 6; grid-row: span 1;}
+      .reminders,.events{grid-column:span 6}
+    }
+
+    /* Desktop: keep sidebar + topbar fixed so they don't move on scroll */
+    @media (min-width:721px){
+      .sidebar{
+        position:fixed;
+        left:0;
+        top:0;
+        height:100vh;
+        z-index:60;
+      }
+      .main{
+        margin-left:250px; /* match .sidebar width */
+      }
+      .topbar{
+        position:fixed;
+        left:250px;        /* sit right of sidebar */
+        right:0;
+        top:0;
+        z-index:70;
+      }
+      .content{
+        padding-top:72px;  /* room for the fixed topbar height */
+      }
+      /* handle collapsed sidebar state */
+      body.collapsed .main{ margin-left:80px; }
+      body.collapsed .topbar{ left:80px; }
+    }
+
+    /* Mobile: keep existing off-canvas behavior (no change) */
+    @media (max-width:720px){
+      .main{ margin-left:0; }
+      .topbar{ left:0; position:sticky; } /* fallback for mobile */
+    }
+
+    /* make each appointment look like a boxed card (left accent, rounded, shadow) */
+    .appointments .appointment{
+      display:flex;
+      gap:12px;
+      padding:14px;
+      border-radius:10px;
+      border:1px solid #eef2f6;
+      background:#fff;
+      align-items:center;
+      box-shadow:0 6px 18px rgba(16,24,40,0.04);
+      margin-bottom:12px;
+      position:relative;
+      overflow:hidden;
+    }
+    /* colored accent stripe on the left of each appointment */
+    .appointments .appointment::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:6px;
+      background:linear-gradient(180deg,#f59e0b,#fbbf24); /* yellow gradient like example */
+      border-top-left-radius:10px;
+      border-bottom-left-radius:10px;
+    }
+    .appointments .appointment:last-child{ margin-bottom:0; }
+
+    /* time column */
+    .appointments .appt-time{
+      width:120px;
+      color:var(--muted);
+      font-weight:700;
+      font-size:14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-start;
+      padding-left:12px; /* give space from accent stripe */
+    }
+
+    /* main info */
+    .appointments .appt-info{
+      flex:1;
+      font-size:14px;
+      color:#111;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .appointments .appt-info .appt-name{ font-weight:700; font-size:15px; }
+    .appointments .appt-info .appt-topic{ color:var(--muted); font-size:13px; }
+
+    /* status badge aligned to the right */
+    .appointments .status-badge{
+      white-space:nowrap;
+      font-size:13px;
+      font-weight:700;
+      padding:6px 10px;
+      border-radius:999px;
+      background:transparent;
+      margin-left:12px;
+    }
+    .appointments .status-badge.today{ color:#059669; }
+    .appointments .status-badge.tomorrow{ color:#b453ff; }
+    .appointments .status-badge.upcoming{ color:#0891b2; }
+
+    /* Session Note Modal (copied from todo.html) */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+    }
+    #modal > div {
+      background: #fff;
+      width: 720px;
+      max-width: calc(100% - 32px);
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(2, 6, 23, 0.2);
+      padding: 18px;
+    }
+    #modal h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    #modal label {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    #modal input,
+    #modal select,
+    #modal textarea {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #e6eef7;
+    }
+    #modal textarea {
+      resize: vertical;
+    }
+    #modal .btn {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #modal .btn.save {
+      background: #10b981;
+      color: #fff;
+    }
+    #modal .btn.submit {
+      background: #2563eb;
+      color: #fff;
+    }
+    #modal .btn.close {
+      background: transparent;
+      border: 0;
+      color: #6b7280;
+      cursor: pointer;
+    }
+
+    /* --- Phone-specific responsive overrides (mobile-first tweaks) --- */
+    @media (max-width:480px){
+      /* Hide desktop sidebar and make topbar compact */
+      .sidebar { display:none !important; }
+      .main{ margin-left:0; }
+      .topbar {
+        padding:10px 14px;
+        height:56px;
+        position:fixed;
+        left:0; right:0; top:0;
+        z-index:80;
+      }
+      .brand .title{ font-size:18px; }
+      .brand .sub{ display:none; }
+      .topbar .top-right {
+        gap: 8px; /* reduce spacing in top right */
+      }
+      .topbar #datetime, .topbar #greeting {
+        display: none !important; /* hide date/time and greeting in topbar on mobile */
+      }
+
+      /* Content area: leave space for fixed topbar and bottom nav */
+      .content {
+        padding:12px;
+        padding-top: calc(56px + 12px);
+        padding-bottom: 86px; /* room for bottom nav */
+      }
+
+  /* Remove topbar greetings on phone but keep the greeting card visible in content */
+  #greeting, #datetime { display: none !important; }
+  /* Hide the date/time shown inside the greeting card on small screens */
+  #dateRight { display: none !important; }
+  /* Ensure the greeting card (content area) is visible and stacked on mobile */
+  .greeting-card { display: flex !important; grid-column: auto; }
+
+      /* Grid becomes single column */
+      .grid {
+        grid-template-columns: 1fr;
+        gap:12px;
+        grid-auto-rows: auto;
+      }
+      .card { grid-column: auto; width: 100%; padding:12px; border-radius:10px; }
+      .greeting-card { padding:12px; flex-direction:column; align-items:flex-start; gap:8px; }
+
+  /* Show Reminders, Recent Activity, and Appointments on phone; hide Calendar & Events */
+  .calendar { display: none !important; } /* Calendar is still hidden */
+  /* Show Reminders and Appointments on phone; hide Recent Activity & Events to reduce clutter */
+  .reminders, .appointments { display: block !important; grid-column: auto; }
+  .recent-activity, .events { display: none !important; } /* hide recent activity and old events on phone */
+
+
+      /* REMOVED: .nav .nav-item[data-name="Messages"], .bottom-nav .nav-item[data-name="Messages"] { display: none !important; } */
+      /* Hide calendar on phone - was using a selector which might be too broad */
+      .calendar { display: none !important; }
+
+
+      /* Appointments: stack info vertically, larger tap targets */
+      .appointments .appointment {
+        flex-direction:column;
+        align-items:flex-start;
+        padding:12px;
+        border-radius:8px;
+        margin-bottom:10px;
+        min-height: 80px; /* ensure large enough tap target */
+      }
+      .appointments .appt-time{ width:auto; font-size:13px; padding-left:0; }
+      .appointments .status-badge{ margin-left:0; margin-top:8px; }
+      .appointments .appointment::before{ display:none; } /* remove accent stripe on phone for cleaner look */
+      .appointments .appt-info { order: -1; margin-bottom: 8px; } /* put info above time */
+      /* Ensure the left container stacks its children vertically on mobile.
+         The left element is generated dynamically and has no class, so we
+         target the first child of .appointment (the left wrapper) and force
+         a column layout to stack .appt-info and .appt-time. Use !important to
+         override inline styles applied by the renderer. */
+      .appointments .appointment > div:first-child {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        width: 100% !important;
+        box-sizing: border-box;
+      }
+      /* Make sure the time and info take full width and appear in the intended order */
+      .appointments .appointment .appt-time,
+      .appointments .appointment .appt-info {
+        width: 100% !important;
+      }
+      /* Mobile spacing tweaks: readable text, wrapped topics, and pinned date badge */
+      .appointments .appointment { padding:14px 14px 14px 14px; position:relative; padding-right:72px; }
+      .appointments .appt-name { font-size:16px !important; line-height:1.2 !important; }
+      .appointments .appt-topic { font-size:13px !important; color:var(--muted) !important; white-space:normal !important; overflow:hidden !important; text-overflow:ellipsis !important; }
+      .appointments .appt-info { gap:6px !important; }
+      .appointments .appt-time { font-size:13px !important; color:var(--muted) !important; margin-top:4px; }
+      /* Pin the status/date badge to the top-right on mobile so name/time spacing stays clean */
+      .appointments .status-badge { position:absolute !important; top:12px !important; right:12px !important; margin-left:0 !important; margin-top:0 !important; }
+      /* Ensure long names wrap instead of overflowing */
+      .appointments .appt-name, .appointments .appt-topic { word-break:break-word; display:block; }
+      /* Position the status badge below the stacked content and left-align it */
+      .appointments .appointment .status-badge {
+        align-self: flex-start !important;
+        margin-left: 0 !important;
+        margin-top: 8px !important;
+        padding: 6px 10px !important;
+        font-size: 13px !important;
+      }
+
+      /* Reminders: make task rows touch friendly and full width */
+      .reminders .body { padding:8px 0; }
+      /* Stack input elements for add task */
+      .reminders .body > div:first-of-type > div:last-of-type {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .reminders .body > div:first-of-type > div:last-of-type input[type="text"],
+      .reminders .body > div:first-of-type > div:last-of-type input[type="date"],
+      .reminders .body > div:first-of-type > div:last-of-type button {
+        width: 100% !important;
+      }
+
+      /* Stronger mobile rules for the add-task container to override inline styles */
+      .reminders .body .add-task {
+        display:flex !important;
+        flex-direction:column !important;
+        gap:10px !important;
+        align-items:stretch !important;
+        width:100%;
+      }
+      .reminders .body .add-task input[type="text"],
+      .reminders .body .add-task input[type="date"],
+      .reminders .body .add-task button {
+        width:100% !important;
+        box-sizing:border-box;
+      }
+
+      .reminders .task, .reminders li {
+        padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:8px; align-items:stretch;
+      }
+      .reminders .task .due { text-align:left; }
+
+      /* Events: increase spacing and touch area (if shown) */
+      .events-list li { padding:12px; }
+
+      /* Modal: use full screen on small devices */
+      #modal > div {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        padding: 12px;
+        overflow:auto;
+      }
+
+      /* Bottom navigation (mobile) - match topbar color for a cohesive look */
+      .bottom-nav{
+        display:flex !important;
+        position:fixed;
+        left:0; right:0; bottom:0;
+        height:72px;
+        background: var(--green);
+        box-shadow:0 -8px 24px rgba(2,6,23,0.08);
+        z-index:90;
+        gap:0;
+        justify-content:space-around;
+        align-items:center;
+        padding:6px 8px;
+        border-top: 1px solid rgba(0,0,0,0.06);
+      }
+      .bottom-nav .nav-item{ 
+        flex:1; display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;border-radius:8px;background:transparent;border:0;color:#fff;font-weight:600; 
+        min-width: 44px; /* touch target */
+        min-height: 44px; /* touch target */
+      }
+      .bottom-nav .nav-item .icon{ font-size:24px; line-height:1; color:inherit; }
+      .bottom-nav .nav-item .label{ font-size:11px; color:inherit; font-weight: 600; }
+      /* Active item becomes light pill with green text for contrast */
+      .bottom-nav .nav-item.active{ color: #064e3b; background: rgba(255,255,255,0.95); border-radius:8px; padding:6px 8px; }
+    }
+    /* end of mobile rules */
+
+    /* Responsive overrides (mobile-first, safe defaults) */
+    :root{
+      --sidebar-width:250px;
+      --collapsed-width:80px;
+      --topbar-height:64px;
+      --gap:16px;
+      --content-padding:16px;
+    }
+
+    /* Make typography scale a bit */
+    html { font-size: 15px; }
+    @media (min-width:1200px){ html { font-size:16px; } }
+    @media (max-width:360px){ html { font-size:14px; } }
+
+    /* Ensure the burger is always reachable and clickable */
+    .burger{ z-index: 120; position: relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:8px; }
+    .sidebar .top .burger{ margin:0; }
+
+    /* Main responsive grid rules */
+   /* Content container: keep padding but limit maximum width for better readability
+     and keep left-aligned when sidebar collapses (do not center). */
+   .content{ padding: var(--content-padding); padding-top: calc(var(--topbar-height) + 12px); transition: padding .2s ease; box-sizing: border-box; width:100%; max-width:120000px; }
+    .grid{ gap: var(--gap); grid-auto-rows: auto; }
+
+    /* Breakpoints for grid columns */
+    @media (min-width:1100px){
+      .grid{ grid-template-columns: repeat(12, 1fr); }
+      .card{ grid-column: span 6; }
+      .appointments, .calendar { grid-column: span 6; }
+      .reminders, .events, .recent-activity { grid-column: span 6; } /* include recent-activity */
+    }
+    @media (min-width:820px) and (max-width:1099px){
+      .grid{ grid-template-columns: repeat(8, 1fr); }
+      .card{ grid-column: span 8; }
+      .appointments, .calendar { grid-column: span 8; }
+      .reminders, .events, .recent-activity { grid-column: span 8; }
+    }
+    @media (min-width:481px) and (max-width:819px){
+      .grid{ grid-template-columns: repeat(6, 1fr); }
+      .card{ grid-column: span 6; }
+      .appointments, .calendar, .reminders, .events, .recent-activity { grid-column: span 6; }
+      /* On tablet, show all cards but stacked */
+      .appointments, .calendar, .reminders, .events, .recent-activity { display: block !important; grid-column: span 6; }
+      .greeting-card { display: flex !important; grid-column: span 6; }
+      /* Use a slightly shorter topbar on tablets too */
+      .topbar { padding: 20px 32px; height: 72px; }
+    }
+    @media (max-width:480px){
+      .grid{ grid-template-columns: 1fr; }
+      .card{ grid-column: auto; width: 100%; padding:12px; }
+      .top-right { gap:8px; }
+      .avatar{ width: 40px; height:40px; font-size:14px; }
+      /* Compact layout tweaks for small phones: reduce padding, topbar height, and gaps */
+      :root { --content-padding: 12px; --topbar-height: 56px; --gap: 10px; }
+      .content { padding: var(--content-padding) !important; padding-top: calc(var(--topbar-height) + 8px) !important; }
+      .topbar { padding: 10px 14px !important; height: var(--topbar-height) !important; }
+      .brand .title { font-size: 18px !important; }
+      .card { padding: 8px !important; border-radius: 8px; }
+      .grid { gap: var(--gap) !important; }
+      /* Make reminders and activity lists a bit denser on phones */
+      .card .body, .reminders .body, .recent-activity .body { padding: 8px !important; }
+      .reminders .card-scroll, .recent-activity .card-scroll { max-height: 38vh !important; }
+      /* Slightly reduce typography for very small screens */
+      @media (max-width:360px){ html { font-size:14px !important; } }
+  /* Re-apply mobile visibility overrides just in case (MAHALAGA ITONG BAGUHIN) */
+  .calendar, .events { display: none !important; } /* Keep hidden */
+  /* Ensure Appointments and Reminders are visible on mobile; hide Recent Activity */
+  .reminders, .appointments { display: block !important; grid-column: auto; }
+  .recent-activity { display: none !important; }
+  /* Also hide the greeting card date/time on mobile */
+  #dateRight { display: none !important; }
+      /* Fix remiders input stacking on mobile */
+      .reminders .body > div:first-of-type > div:last-of-type {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .reminders .body > div:first-of-type > div:last-of-type input[type="text"],
+      .reminders .body > div:first-of-type > div:last-of-type button {
+        width: 100% !important;
+      }
+    }
+
+    /* Sidebar behavior */
+    @media (min-width:721px){
+      .sidebar{ position:fixed; left:0; top:0; height:100vh; width:var(--sidebar-width); z-index:80; transition:width .18s ease, transform .25s ease; }
+      body.collapsed .sidebar{ width: var(--collapsed-width); }
+      .main{ margin-left: var(--sidebar-width); transition:margin-left .18s ease; }
+      body.collapsed .main{ margin-left: var(--collapsed-width); }
+      .topbar{ position:fixed; left: var(--sidebar-width); right:0; top:0; height:var(--topbar-height); z-index:85; transition:left .18s ease; }
+      body.collapsed .topbar{ left: var(--collapsed-width); }
+      .content{ padding-top: calc(var(--topbar-height) + 12px); }
+      .bottom-nav { display: none !important; } /* Hide bottom nav on desktop/tablet */
+    }
+
+    /* Off-canvas for small screens */
+    @media (max-width:720px){
+      .sidebar{ width:260px; position:fixed; left:0; top:0; transform:translateX(-100%); transition:transform .28s ease; z-index:120; }
+      body.show-sidebar .sidebar{ transform: translateX(0); }
+      .main{ margin-left:0; }
+      .topbar{ left:0; right:0; position:fixed; z-index:95; }
+      .nav .label{ display:block; } /* ensure labels are visible in the full off-canvas sidebar */
+    }
+
+    /* Remove max-width on small screens so mobile uses full width */
+    @media (max-width:7px){
+      .content { max-width: none; }
+    }
+
+    /* Improve touch targets */
+    .nav button, .nav .nav-item, .icon-btn, .burger { min-height:44px; padding:10px; }
+    .nav .icon{ width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center; }
+
+    /* Card responsiveness */
+    .card{ box-sizing:border-box; max-width:100%; }
+    .events .view-btn .btn, .appointments .view-btn .btn{ width:100%; min-height:44px; }
+
+  /* Slightly reduce typography inside content cards for a denser look */
+  .content .card { font-size: 11px; }
+  .content .card h3 { font-size: 15px; margin-bottom: 7px; }
+  .content .card .body, .content .card .body * { font-size: 13px; }
+  /* Appointments specific */
+  .appointments .appt-info { font-size: 13px !important; }
+  .appointments .appt-time { font-size: 12px !important; }
+  /* Reminders */
+  .reminders .task .text { font-size: 13px !important; }
+  .reminders .task .due { font-size: 12px !important; }
+  /* Recent activity */
+  .activity-title { font-size: 13px !important; }
+  .activity-sub { font-size: 12px !important; color: var(--muted) !important; }
+
+
+    /* Accessibility: visible focus states */
+    button:focus, .nav button:focus, .icon-btn:focus { outline:3px solid rgba(15,122,52,0.12); outline-offset:2px; }
+
+ 
+
+    /* small polish: reduce spacing on very small screens */
+    @media (max-width:360px){
+      :root{ --gap:10px; --content-padding:12px; --topbar-height:56px; }
+      .brand .title{ font-size:18px; }
+    }
+
+    /* End responsive overrides */
+
+    /* override sidebar label weight */
+    .nav button,
+    .nav .label {
+      font-weight: 400 !important; /* use 400 (normal). Remove !important if specificity is enough */
+    }
+    /* optional: keep icon bold/large */
+    .nav .icon { font-weight: 700; }
+    /* Notification Dropdown Styles for Counselor (from copy) */
+    .notification-dropdown {
+      position: absolute;
+      right: 16px;
+      top: 56px;
+      width: 420px;
+      max-width: calc(100vw - 32px);
+      max-height: 70vh;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(2,6,23,0.16);
+      border: 1px solid rgba(2,6,23,0.06);
+      z-index: 1200;
+      overflow: hidden;
+      color: #111827;
+      font-size: 14px;
+      display: none;
+    }
+
+    .notification-header {
+      padding: 16px;
+      border-bottom: 1px solid #f1f4f7;
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .notification-header h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .notification-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: #0f7a34;
+      color: #fff;
+      border-color: #0f7a34;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
+
+    .notification-content {
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .notification-section {
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f4f7;
+    }
+
+    .notification-section:last-child {
+      border-bottom: none;
+    }
+
+    .notification-section h4 {
+      margin: 0 0 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .notification-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notification-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f4f7;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      position: relative;
+    }
+
+    .notification-item:last-child {
+      border-bottom: none;
+    }
+
+    .notification-item:hover {
+      background: #f8fafc;
+    }
+
+    .notification-item.unread {
+      background: #f0f9ff;
+      border-left: 3px solid #0f7a34;
+    }
+
+    .notification-item.unread::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      background: #0f7a34;
+      border-radius: 50%;
+    }
+
+    .notification-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f4f7;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .notification-item.unread .notification-icon {
+      background: #e0f2fe;
+    }
+
+    .notification-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .notification-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+      color: #111827;
+      font-size: 14px;
+    }
+
+    .notification-subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .notification-message {
+      font-size: 13px;
+      color: #374151;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .notification-meta {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .notification-time {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .notification-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .accept-btn, .decline-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .accept-btn {
+      background: #0f7a34;
+      color: white;
+    }
+
+    .accept-btn:hover {
+      background: #0c5a28;
+      transform: translateY(-1px);
+    }
+
+    .decline-btn {
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    }
+
+    .decline-btn:hover {
+      background: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .see-previous-btn {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      color: #0f7a34;
+      cursor: pointer;
+      font-weight: 500;
+      text-align: center;
+      transition: background-color 0.2s;
+      border-radius: 6px;
+    }
+
+    .see-previous-btn:hover {
+      background: #f0f9ff;
+    }
+
+    .action-item {
+      padding: 8px 16px;
+    }
+
+    .action-item:hover {
+      background: transparent;
+    }
+
+    /* Priority colors for different notification types */
+    .notification-item[data-priority="high"] {
+      border-left: 3px solid #dc2626;
+    }
+
+    .notification-item[data-priority="high"] .notification-icon {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .notification-item[data-priority="medium"] {
+      border-left: 3px solid #f59e0b;
+    }
+
+    .notification-item[data-priority="medium"] .notification-icon {
+      background: #fffbeb;
+      color: #f59e0b;
+    }
+
+    /* Scrollbar styling for notification content */
+    .notification-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .notification-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .notification-content::-webkit-scrollbar-thumb {
+      background: #e5e7eb;
+      border-radius: 3px;
+    }
+
+    .notification-content::-webkit-scrollbar-thumb:hover {
+      background: #d1d5db;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 480px) {
+      .notification-dropdown {
+        width: 320px;
+        right: 8px;
+        left: 8px;
+        max-width: none;
+      }
+      
+      .notification-item {
+        padding: 10px 12px;
+      }
+      
+      .notification-actions {
+        flex-direction: column;
+      }
+    }
+    
+  </style>
+  <link rel="stylesheet" href="mobile.css" media="(max-width:480px)">
+  <!-- Shared bottom navigation (rendered on small screens). 
+       Use .bn-item for unified mobile styles; mobile script will skip
+       rendering if explicit bn-items are present so pages can opt-in. -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Mobile navigation">
+    <a class="bn-item" data-name="Home" aria-label="Home" href="home.html">
+      <i class="material-icons">home</i>
+      <span class="label">Home</span>
+    </a>
+    <a class="bn-item" data-name="Appointments" aria-label="Appointments" href="counselor_appointment.html">
+      <i class="material-icons">calendar_today</i>
+      <span class="label">Appt</span>
+    </a>
+    <a class="bn-item" data-name="Students" aria-label="Students" href="counselor_student.html">
+      <i class="material-icons">group</i>
+      <span class="label">Students</span>
+    </a>
+    <a class="bn-item" data-name="Messages" aria-label="Messages" href="counselor_message.html">
+      <i class="material-icons">chat_bubble</i>
+      <span class="label">Msgs</span>
+    </a>
+    <a class="bn-item" data-name="Settings" aria-label="Settings" href="counselor_setting.html">
+      <i class="material-icons">settings</i>
+      <span class="label">Settings</span>
+    </a>
+  </nav>
+  </head>
+  <body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="top">
+        <div class="logo">SafeSpace</div>
+        <button class="burger" id="burger">☰</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-name="Home"><span class="icon">🏠</span><span class="label">Home</span></button>
+        <button class="nav-item" data-name="Appointments"><span class="icon">📅</span><span
+            class="label">Appointments</span></button>
+        <button class="nav-item" data-name="Students"><span class="icon">👥</span><span
+            class="label">Students</span></button>
+        <button class="nav-item " data-name="Messages"><span class="icon">💬</span><span
+            class="label">Messages</span></button>
+
+        <button class="nav-item" data-name="Settings"><span class="icon">⚙️</span><span
+            class="label">Settings</span></button>
+      
+</nav>
+      <div class="bottom">
+        <div style="padding:10px">
+          <div class="logged" style="margin-top:12px">Logged in as:<br><strong id="sidebarUserName">Counselor</strong></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="brand">
+          <div class="title">SafeSpace</div>
+          <div class="sub">Counselor Portal</div>
+        </div>
+
+        <div class="top-right">
+          <div style="text-align:right;margin-right:10px">
+           <div style="font-weight:700;font-size:16px" id="greeting">Good Morning, Counselor 👋</div>
+            <div style="font-size:13px;opacity:0.95" id="datetime">Sunday, Sept 7, 2025 — 06:45 AM</div>
+          </div>
+                <button id="notifBtn" class="icon-btn" aria-expanded="false" title="Notifications" style="color:white;padding:8px;border:none;border:0;display:inline-flex;align-items:center;justify-content:center;box-shadow:none;position:relative;">
+                        <i class="material-icons" style="color:white;font-size:30px;border:none;outline:none;background:transparent;">notifications</i>
+                        <span id="notifBadge" class="hidden" style="position:absolute;top:2px;right:2px;min-width:18px;height:18px;font-size:11px;background:#ef4444;color:#fff;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.15)">0</span>
+                    </button>
+                    <div id="notificationDropdown" class="hidden absolute right-4 top-16 w-96 max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-lg border border-gray-100 z-50" aria-hidden="true">
+                      <div class="flex items-start justify-between px-4 py-3 bg-gray-50 border-b">
+                        <h3 class="text-gray-900 text-lg font-semibold">Notifications</h3>
+                        <div class="flex items-center gap-3">
+                          <button id="markAllReadBtn" class="text-sm text-gray-500 hover:text-gray-700">Mark all read</button>
+                        </div>
+                      </div>
+
+                      <div id="notificationList" class="max-h-80 overflow-y-auto divide-y">
+                        </div>
+
+                      <div class="px-4 py-3 border-t text-center">
+                        <button id="viewAllNotifications" class="text-sm font-bold text-green-600 hover:underline">View all notifications</button>
+                      </div>
+                    </div>
+          <div style="position:relative;display:inline-block">
+            <button class="icon-btn" id="profileBtn" title="Profile" style="position:relative;padding:0;">
+            <div class="avatar" id="userAvatar" style="width:60px;height:60px;flex-shrink:0;position:relative;">
+              <img id="userAvatarImg" src="" alt="Profile" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+              <span id="userAvatarText" style="font-size:20px;"></span>
+              <div style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                <span style="font-size:10px;color:#333;font-weight:bold;">v</span>
+              </div>
+            </div>
+          </button>
+            <div id="profileDropdown" class="profile-dropdown" aria-hidden="true" style="display:none;">
+              <div class="pd-head">
+                <div class="pd-avatar">
+                  <img id="profileDropdownAvatar" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+                  <span id="profileDropdownAvatarText" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-weight:800;color:var(--green)"></span>
+                </div>
+                <div class="pd-meta">
+                  <div id="profileDropdownName" class="pd-name">Hi, RSU SAFESPACE</div>
+                  <div id="profileDropdownEmail" class="pd-email">rsusafespace@gmail.com</div>
+                </div>
+              </div>
+<div style="padding:8px 6px;display:flex;flex-direction:column;gap:6px">
+                                              <button id="viewAccountLink" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                                                                                                <i class="material-icons icon" style="font-size:18px;line-height:1;">person</i>
+                                                                                                <span style="flex:1;text-align:left">Manage your profile</span>
+                                                                                            </button>
+                                              
+                        <a id="privacySecurityLink" href="counselor_privacy.html" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;font-weight:600">
+                                                <i class="material-icons icon" style="font-size:18px;line-height:1;">security</i>
+                                                <span style="flex:1;text-align:left">Privacy &amp; Security</span>
+                                                <i class="material-icons icon" style="font-size:16px;opacity:0.7;">chevron_right</i>
+                                              </a>
+                                              <button id="dropdownLogoutBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;color:#111;font-weight:600">
+                                                                                                <i class="material-icons icon" style="font-size:18px;line-height:1;color:#ef4444">logout</i>
+                                                                                                <span style="flex:1;text-align:left">Log Out</span>
+                                                                                            </button>
+                                                                                        </div>
+
+              
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="greeting-card">
+          <div>
+            <div style="font-weight:700;font-size:18px" id="greetingCard">Good Morning, Counselor 👋</div>
+            <div style="color:var(--muted)">Here's what's happening today</div>
+          </div>
+          <div style="text-align:right;color:var(--muted)" id="dateRight"></div>
+        </div>
+
+        <div class="grid">
+
+          <section class="card appointments" aria-label="Appointments">
+            <h3>📅 Appointments</h3>
+            <div class="body" id="appointmentsList"></div>
+            <div class="view-btn"><button class="btn" id="viewAllAppts">View All</button></div>
+          </section>
+
+          <section class="card calendar" aria-label="Calendar">
+            <h3>📆 Calendar of Appointments</h3>
+            <div class="body">
+              <div class="cal-weekdays">
+                <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+              </div>
+              <div class="cal-cells" id="calendarGrid"></div>
+
+              <!-- Day appointments modal -->
+              <div id="calendarDayModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+                <div class="bg-white w-11/12 max-w-xl rounded-xl shadow-lg p-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 id="calendarModalTitle" class="text-lg font-semibold">Appointments</h3>
+                    <button id="closeCalendarModal" class="text-gray-500">X</button>
+                  </div>
+                  <div id="calendarModalBody" style="max-height:60vh;overflow:auto;padding-right:6px">
+                    <!-- appointment rows inserted here -->
+                  </div>
+                  <div class="mt-4 text-right">
+                    <button id="openAppointmentsPage" class="px-4 py-2 text-white rounded-lg"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card reminders" aria-label="Reminders / To-Do">
+            <div class="body">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div>
+                  <h3 style="margin:0 0 6px 0;font-size:16px;font-weight:700">✅ Reminders / To-Do</h3>
+                  <div style="font-size:13px;color:var(--muted)">Tap a task to open the session notes form (demo).</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input id="newDue" type="date" style="padding:8px;border-radius:8px;border:1px solid #e6eef7" />
+                  <input id="newTask" type="text" placeholder="Add new task (e.g. Create Session Note - Mary Joy)" style="padding:8px 12px;border-radius:20px;border:1px solid #e6eef7;width:260px" />
+                  <button id="addTaskBtn" style="padding:8px 12px;border-radius:20px;border:0;background:#10b981;color:#fff;cursor:pointer">Add</button>
+                </div>
+              </div>
+
+              <div class="card-scroll">
+                <ul id="tasksList" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px"></ul>
+              </div>
+
+              <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+                <div style="color:var(--muted);font-size:13px">Showing <span id="countPending">0</span> pending</div>
+                <div style="display:flex;gap:8px">
+                  <button id="clearDone" style="padding:8px 12px;border-radius:8px;border:1px solid #e6eef7;background:#f3f4f6;cursor:pointer">Clear completed</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card recent-activity" aria-label="Recent Activity">
+            <h3>Recent Activity <span style="font-size:14px;color:var(--muted)">📊</span></h3>
+            <div class="body">
+              <div style="color:var(--muted);font-size:13px;margin-bottom:8px">Shows last logins, profile edits, or sessions.</div>
+              <div class="card-scroll">
+                <ul class="activity-list" id="activityList">
+                <li class="activity-item">
+                  <div class="activity-icon">🔒</div>
+                  <div class="activity-content">
+                    <div class="activity-title">Logged in to SafeSpace</div>
+                    <div class="activity-sub">2025-09-30 08:15 AM</div>
+                  </div>
+                </li>
+
+                <li class="activity-item">
+                  <div class="activity-icon">💬</div>
+                  <div class="activity-content">
+                    <div class="activity-title">Completed session with Ana Santos</div>
+                    <div class="activity-sub">2025-09-30 10:30 AM</div>
+                  </div>
+                </li>
+
+                <li class="activity-item">
+                  <div class="activity-icon">✏️</div>
+                  <div class="activity-content">
+                    <div class="activity-title">Updated profile information</div>
+                    <div class="activity-sub">2025-09-29 02:45 PM</div>
+                  </div>
+                </li>
+
+                <li class="activity-item">
+                  <div class="activity-icon">💬</div>
+                  <div class="activity-content">
+                    <div class="activity-title">Started session with Juan Dela Cruz</div>
+                    <div class="activity-sub">2025-09-29 11:20 AM</div>
+                  </div>
+                </li>
+
+                <li class="activity-item">
+                  <div class="activity-icon">🔒</div>
+                  <div class="activity-content">
+                    <div class="activity-title">Logged in to SafeSpace</div>
+                    <div class="activity-sub">2025-09-29 08:00 AM</div>
+                  </div>
+                </li>
+                </ul>
+              </div>
+            </div>
+            <div class="activity-footer"><a href="#" id="refreshActivities">⟳ Refresh Activities</a></div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:3000">
+    <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:92%;box-shadow:0 12px 40px rgba(2,6,23,0.2)">
+      <h3 id="confirmModalTitle" style="margin:0 0 8px 0;font-size:16px;font-weight:700">Confirm</h3>
+      <div id="confirmModalMessage" style="font-size:15px;margin-bottom:12px;color:#111"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="confirmCancelBtn" style="background:#6c757d;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button id="confirmOkBtn" style="background:#00723f;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { fetchNotifications, sortNotifications } from './notifications-api.js';
+    // Display logged-in counselor's name in greeting
+    async function showCounselorName(user) {
+      if (!user || !user.uid) return;
+      try {
+        // Query counselors table for matching uid
+        const q = query(ref(db, "counselors"), orderByChild("uid"), equalTo(user.uid));
+        const qsnap = await get(q);
+        let displayName = user.email;
+        if (qsnap.exists()) {
+          qsnap.forEach((child) => {
+            const val = child.val();
+            if (val.first_name && val.last_name) {
+              displayName = `${val.first_name} ${val.last_name}`;
+            } else if (val.username) {
+              displayName = val.username;
+            }
+          });
+        }
+        const greetingEl = document.querySelector('div[style*="font-weight:700"][style*="font-size:18px"]');
+        if (greetingEl) {
+         greetingEl.textContent = `Good Morning, ${displayName} 👋`;
+        }
+      } catch (e) {}
+    }
+
+    watchAuth((user) => {
+      if (!user || user.isAnonymous || !user.email) {
+        window.location.replace('counselor_login.html');
+      } else {
+        // expose a global reference for dev helpers (used by markAllAsRead / pushTestNotification)
+        try { window.currentUser = user; } catch (e) { /* ignore non-writable globals */ }
+        showCounselorName(user);
+        // load notifications for this user
+        try { loadNotifications(user.uid); } catch (e) { console.warn('loadNotifications fail', e); }
+      }
+    });
+    // Redirect to login if not authenticated
+    watchAuth((user) => {
+      if (!user || user.isAnonymous || !user.email) {
+        try { window.currentUser = null; } catch (e) {}
+        window.location.replace('counselor_login.html');
+      } else {
+        try { window.currentUser = user; } catch (e) {}
+      }
+    });
+  import { ref, get, query, orderByChild, equalTo, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { watchAuth, db, login, showUserInfo } from "./main.js";
+
+    // Notification rendering functions (shared with template)
+    function getNotificationIcon(type) {
+      const icons = { 'info': 'info', 'success': 'check_circle', 'warning': 'warning', 'alert': 'error' };
+      return icons[type] || 'notifications';
+    }
+
+    function updateNotificationBadge(notifications) {
+      // HTML uses `notifBadge` as the id for the small red badge next to the bell.
+      const badge = document.getElementById('notifBadge');
+      if (!badge) return;
+      const unreadCount = Array.isArray(notifications) ? notifications.filter(n => n.unread).length : 0;
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+        badge.classList.remove('hidden');
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.classList.add('hidden');
+        badge.style.display = 'none';
+      }
+    }
+
+    // Small utility to escape HTML when inserting untrusted text into the notification markup.
+    // Placed at module scope so displayNotifications and other helpers can use it.
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+      });
+    }
+
+    function displayNotifications(notifications) {
+      const notificationList = document.getElementById('notificationList');
+      if (!notificationList) return;
+      if (!notifications || notifications.length === 0) {
+        notificationList.innerHTML = `
+          <div class="p-6 text-center text-gray-500">
+            <span class="material-icons align-middle text-2xl">notifications_none</span>
+            <div class="mt-2">No notifications</div>
+          </div>
+        `;
+        return;
+      }
+
+      // Render each notification using Tailwind classes
+      notificationList.innerHTML = notifications.map(notification => {
+        const unreadClass = notification.unread ? 'bg-blue-50' : 'bg-white';
+        const type = notification.type || 'info';
+        const icon = getNotificationIcon(type);
+        // color classes by type
+        const typeClasses = {
+          info: 'bg-blue-100 text-blue-600',
+          success: 'bg-green-100 text-green-600',
+          warning: 'bg-yellow-100 text-yellow-800',
+          alert: 'bg-red-100 text-red-600'
+        };
+        const iconClasses = typeClasses[type] || typeClasses.info;
+
+        return `
+          <div class="px-4 py-3 flex gap-4 items-start hover:bg-gray-50 ${unreadClass} notification-row" data-id="${escapeHtml(notification.id)}" data-href="${escapeHtml(notification.href || '')}">
+          <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center ${iconClasses}">
+              <i class="material-icons">${escapeHtml(icon)}</i>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm text-gray-900 truncate">${escapeHtml(notification.title)}</div>
+            <div class="text-sm text-gray-600 mt-1 truncate">${escapeHtml(notification.message)}</div>
+            <div class="text-xs text-gray-400 mt-2">${escapeHtml(notification.time || '')}</div>
+          </div>
+        </div>
+        `;
+      }).join('');
+
+      // Attach click handlers to mark as read locally and update badge
+      notificationList.querySelectorAll('.notification-row').forEach(item => {
+        item.addEventListener('click', function(e) {
+          const notificationId = this.getAttribute('data-id');
+          // remove unread background
+          this.classList.remove('bg-blue-50');
+          this.classList.add('bg-white');
+          // Update badge count based on remaining unread rows
+          const rows = Array.from(document.querySelectorAll('#notificationList .notification-row'));
+          const remaining = rows.filter(r => r.classList.contains('bg-blue-50')).length;
+          const fake = rows.map(r => ({ id: r.dataset.id, unread: r.classList.contains('bg-blue-50') }));
+          updateNotificationBadge(fake);
+
+          // Navigation: if the notification references an appointment or student, go directly there.
+          try{
+            const href = this.getAttribute('data-href');
+            // 1) explicit href takes precedence
+            if(href && href.trim()){ window.location.href = href; return; }
+            // 2) parse notification id prefixes like 'appt-<id>' or 'upcoming-<id>'
+            if(notificationId){
+              const nid = String(notificationId);
+              if(nid.startsWith('appt-') || nid.startsWith('upcoming-')){
+                // open appointment page with appointmentId query
+                const parts = nid.split('-'); parts.shift(); const apptId = parts.join('-');
+                window.location.href = `counselor_appointment.html?appointmentId=${encodeURIComponent(apptId)}`;
+                return;
+              }
+              if(nid.startsWith('student-') || nid.startsWith('profile-')){
+                const parts = nid.split('-'); parts.shift(); const uid = parts.join('-');
+                window.location.href = `counselor_student.html?uid=${encodeURIComponent(uid)}`;
+                return;
+              }
+            }
+          }catch(nerr){ console.warn('notification click navigation failed', nerr); }
+        });
+      });
+    }
+
+    async function loadNotifications(uid) {
+      try {
+        console.debug('loadNotifications() called for uid=', uid);
+
+        // 1) Load explicit notifications node
+        let notifications = [];
+        try {
+          notifications = await fetchNotifications(uid);
+          console.debug('fetchNotifications returned', Array.isArray(notifications) ? notifications.length : typeof notifications, 'items');
+        } catch (e) {
+          console.warn('fetchNotifications failed', e);
+          notifications = [];
+        }
+
+        // 2) Load appointments for this counselor and map to notification-like items
+        let apptNotifications = [];
+        try {
+          const apptSnap = await get(ref(db, `appointments_by_counselor/${uid}`));
+          if (apptSnap.exists()) {
+            const apptData = apptSnap.val() || {};
+            const appts = Object.keys(apptData).map(k => ({ id: k, ...(apptData[k] || {}) }));
+            apptNotifications = appts.map(a => {
+              const when = (a.date ? `${a.date}` : '') + (a.time ? ` ${a.time}` : '');
+              const status = (a.status || '').toString().toLowerCase();
+
+              // Determine notification semantics based on appointment status
+              let title = 'Appointment Update';
+              let type = 'info';
+              let unread = false;
+
+              if (['pending', 'requested', 'new'].includes(status)) {
+                title = 'Appointment Request';
+                type = 'info';
+                unread = true;
+              } else if (['missed', 'no-show', 'noshow'].includes(status)) {
+                title = 'Missed Appointment';
+                type = 'alert';
+                unread = true;
+              } else if (['completed', 'done'].includes(status)) {
+                title = 'Appointment Completed';
+                type = 'success';
+                unread = false;
+              } else if (status.includes('refer') || a.referred_from) {
+                title = 'Appointment Referral';
+                type = 'warning';
+                unread = true;
+              } else if (['cancelled', 'canceled'].includes(status)) {
+                title = 'Appointment Cancelled';
+                type = 'warning';
+                unread = true;
+              }
+
+              // Build a concise message; include referral source if available
+              let message = `${a.student_name || a.student || 'Student'}`;
+              if (a.concern) message += ` — ${a.concern}`;
+              if (a.referred_from) message += ` (referred from ${a.referred_from})`;
+              message = message.trim();
+
+              // If the appointment has already been acknowledged (notification_ack === true),
+              // treat it as read so it won't show up as unread in the badge or list.
+              const isAcked = !!a.notification_ack;
+              return {
+                id: `appt-${a.id}`,
+                type,
+                title,
+                message,
+                time: when || (a.created_at ? String(a.created_at) : ''),
+                href: `counselor_appointment.html?appointmentId=${encodeURIComponent(a.id)}`,
+                unread: !!unread && !isAcked
+              };
+            });
+            console.debug('Mapped', apptNotifications.length, 'appointments into notifications');
+          } else {
+            console.debug('No appointments found for counselor', uid);
+          }
+        } catch (err) {
+          console.warn('Failed to load appointments_by_counselor for', uid, err);
+          apptNotifications = [];
+        }
+
+        // 3) Detect upcoming appointments (within threshold) and schedule a re-check
+        const UPCOMING_THRESHOLD_HOURS = 2; // notify when appointment is within this many hours
+        const now = new Date();
+        const upcomingNotifications = [];
+        let nextCheckDelayMs = Infinity;
+
+        function parseApptDateTime(a) {
+          try {
+            if (!a || !a.date) return null;
+            const dateStr = String(a.date).trim();
+            const timeStr = (a.time || '').toString().trim();
+            const dateParts = dateStr.split(/[-\/]/).map(p => parseInt(p, 10));
+            if (dateParts.length >= 3) {
+              const year = dateParts[0];
+              const month = dateParts[1] - 1;
+              const day = dateParts[2];
+              let hour = 0, minute = 0;
+              if (timeStr) {
+                const tm = timeStr.split(':').map(p=>parseInt(p,10));
+                if (!isNaN(tm[0])) hour = tm[0];
+                if (!isNaN(tm[1])) minute = tm[1];
+              }
+              return new Date(year, month, day, hour, minute, 0, 0);
+            }
+            const d = new Date(`${dateStr} ${timeStr}`);
+            if (!isNaN(d.getTime())) return d;
+            return null;
+          } catch (e) { return null; }
+        }
+
+        (apptNotifications || []).forEach(a => {
+          const dt = parseApptDateTime(a);
+          if (!dt) return;
+          const diffMs = dt.getTime() - now.getTime();
+          const thresholdMs = UPCOMING_THRESHOLD_HOURS * 3600 * 1000;
+          if (diffMs > 0 && diffMs <= thresholdMs) {
+            const relMin = Math.max(1, Math.round(diffMs / 60000));
+            const rel = relMin >= 60 ? `${Math.floor(relMin/60)}h ${relMin%60}m` : `${relMin}m`;
+            upcomingNotifications.push({
+              id: `upcoming-${a.id}`,
+              type: 'warning',
+              title: 'Upcoming Appointment',
+              message: `${a.student_name || 'Student'}${a.concern ? ' — ' + a.concern : ''} at ${a.time || a.date} (in ${rel})`,
+              time: a.time ? `${a.date || ''} ${a.time}`.trim() : (a.date || ''),
+              href: `counselor_appointment.html?appointmentId=${encodeURIComponent(a.id)}`,
+              unread: true
+            });
+          } else if (diffMs > thresholdMs) {
+            const delay = diffMs - thresholdMs;
+            if (delay > 0 && delay < nextCheckDelayMs) nextCheckDelayMs = delay;
+          }
+        });
+
+        // 4) Combine and dedupe (notifications node first, then apptNotifications, then upcomingNotifications)
+        const combined = [];
+        const seen = new Set();
+        (notifications || []).forEach(n => { const id = String(n.id ?? n._id ?? Math.random()); if (!seen.has(id)) { seen.add(id); combined.push(n); } });
+        (apptNotifications || []).forEach(n => { if (!seen.has(n.id)) { seen.add(n.id); combined.push(n); } });
+        (upcomingNotifications || []).forEach(n => { if (!seen.has(n.id)) { seen.add(n.id); combined.push(n); } });
+
+        // 5) Sort using the shared helper (newest-first, unread preferred)
+        try { sortNotifications(combined); } catch (e) { /* ignore and render as-is */ }
+
+        // 6) Render
+        displayNotifications(combined);
+        updateNotificationBadge(combined);
+
+        // Schedule a re-check when the next appointment will enter the upcoming window
+        try {
+          if (Number.isFinite(nextCheckDelayMs) && nextCheckDelayMs < Infinity) {
+            const cap = Math.min(nextCheckDelayMs, 7 * 24 * 3600 * 1000);
+            setTimeout(() => {
+              try { loadNotifications(uid); } catch(e) { console.debug('scheduled loadNotifications failed', e); }
+            }, cap + 1000);
+            console.debug('Scheduled next notifications re-check in', Math.round((cap)/60000), 'minutes');
+          }
+        } catch (e) { /* ignore scheduling errors */ }
+      } catch (err) {
+        console.error('loadNotifications failed', err);
+      }
+    }
+
+    // Dev helper: push a test notification to the current user's notifications node
+    // Usage from browser console: pushTestNotification() or pushTestNotification({ title: 'Hi', message: 'test' })
+    window.pushTestNotification = async function(opts = {}) {
+      try {
+        const cu = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser : null;
+        if (!cu || !cu.uid) return console.warn('No signed-in user available (currentUser is null)');
+        const uid = cu.uid;
+        const payload = {
+          title: opts.title || 'Test notification',
+          message: opts.message || `This is a test notification created at ${new Date().toLocaleString()}`,
+          type: opts.type || 'info',
+          time: opts.time || 'just now',
+          unread: true
+        };
+        const p = push(ref(db, `notifications/${uid}`));
+        await set(p, payload);
+        console.info('Test notification pushed to notifications/%s (key=%s)', uid, p.key || '(unknown)');
+        // Refresh UI
+        try { await loadNotifications(uid); } catch (e) { console.warn('loadNotifications after push failed', e); }
+        return true;
+      } catch (err) {
+        console.error('pushTestNotification failed', err);
+        return false;
+      }
+    };
+
+    // Dev helper: mark all notifications as read for current user
+    window.markAllAsRead = async function() {
+      try {
+        const cu = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser : null;
+        if (!cu || !cu.uid) return console.warn('No signed-in user available (currentUser is null)');
+        const uid = cu.uid;
+
+        // 1) Mark unread flags in notifications/{uid} (existing notification records)
+        const snap = await get(ref(db, `notifications/${uid}`));
+        if (snap.exists()) {
+          const data = snap.val() || {};
+          const keys = Object.keys(data);
+          await Promise.all(keys.map(k => set(ref(db, `notifications/${uid}/${k}/unread`), false)));
+          console.info('Marked', keys.length, 'notifications as read for', uid);
+        } else {
+          console.info('No notifications node found for', uid);
+        }
+
+        // 2) Mark appointment-based notifications as acknowledged so they won't reappear as unread
+        // We'll set a lightweight flag `notification_ack: true` on the appointment record.
+        try {
+          const apptSnap = await get(ref(db, `appointments_by_counselor/${uid}`));
+          if (apptSnap.exists()) {
+            const apptData = apptSnap.val() || {};
+            const apptKeys = Object.keys(apptData);
+            // For each appointment, set notification_ack = true if it currently would be considered unread
+            const writes = [];
+            apptKeys.forEach(k => {
+              const a = apptData[k] || {};
+              const status = (a.status || '').toString().toLowerCase();
+              const isUnread = ['pending','requested','new','missed','no-show','noshow'].includes(status) || status.includes('refer');
+              if (isUnread) {
+                writes.push(set(ref(db, `appointments_by_counselor/${uid}/${k}/notification_ack`), true));
+              }
+            });
+            if (writes.length) {
+              await Promise.all(writes);
+              console.info('Acknowledged', writes.length, 'appointment notifications for', uid);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to mark appointment acknowledgements', e);
+        }
+
+        // Refresh UI
+        await loadNotifications(uid);
+        return true;
+      } catch (err) {
+        console.error('markAllAsRead failed', err);
+      }
+    };
+
+
+    // Toggle behavior for notification dropdown (open on button click, close on outside click or Escape)
+    (function wireNotificationToggle(){
+      const notifBtn = document.getElementById('notifBtn');
+      const notifDropdown = document.getElementById('notificationDropdown');
+      const markAllReadBtn = document.getElementById('markAllReadBtn');
+      const clearAllBtn = document.getElementById('clearAllBtn');
+
+      if (!notifBtn || !notifDropdown) return;
+
+      function openDropdown() {
+        notifDropdown.classList.remove('hidden');
+        notifDropdown.setAttribute('aria-hidden', 'false');
+        notifBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeDropdown() {
+        notifDropdown.classList.add('hidden');
+        notifDropdown.setAttribute('aria-hidden', 'true');
+        notifBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      notifBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (notifDropdown.classList.contains('hidden')) openDropdown(); else closeDropdown();
+      });
+
+      // Prevent clicks inside the dropdown from closing it
+      notifDropdown.addEventListener('click', (e) => { e.stopPropagation(); });
+
+      // Close when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!notifDropdown.classList.contains('hidden') && !notifDropdown.contains(e.target) && e.target !== notifBtn) {
+          closeDropdown();
+        }
+      });
+
+      // Close on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDropdown();
+      });
+
+      // Hook action buttons
+      if (markAllReadBtn) markAllReadBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof window.markAllAsRead === 'function') window.markAllAsRead(); });
+      if (clearAllBtn) clearAllBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications(); });
+    })();
+
+    // Firebase-connected appointments and calendar
+    (function(){
+      let currentUser = null;
+      let allAppointments = [];
+      let appointmentListeners = [];
+
+      // Dummy data for events and tasks (keeping these as static for now)
+      const events = [
+        {id:1,title:"Career Fair",date:"Sept 15, 2025",place:"Main Auditorium"},
+        {id:2,title:"Mental Health Awareness Week",date:"Oct 5-9, 2025",place:"Campus Grounds"},
+        {id:3,title:"Study Skills Workshop",date:"Oct 20, 2025",place:"Guidance Office"}
+      ];
+      let tasks = [];
+
+      // DOM references
+      const apptsEl = document.getElementById('appointmentsList');
+      // eventsList may not exist on this page (Recent Activity replaced Events).
+      // Make nullable so code can safely run without the Events card.
+      const eventsEl = document.getElementById('eventsList') || null;
+      const tasksEl = document.getElementById('tasksList');
+  // Recent Activity elements
+  const activityListEl = document.getElementById('activityList');
+  const refreshActivitiesBtn = document.getElementById('refreshActivities');
+      const calGrid = document.getElementById('calendarGrid');
+      const dateRight = document.getElementById('dateRight');
+      const datetime = document.getElementById('datetime');
+
+      // Initialize Firebase auth and appointments
+      watchAuth((user) => {
+        if (user && !user.isAnonymous) {
+          currentUser = user;
+          initializeAppointments(); // Try Firebase again with simpler approach
+          // Load recent activity for this user
+          loadActivities().catch(console.error);
+          // Record a login event only if it wasn't already recorded by the sign-in flow.
+          // The login page sets `sessionStorage.loginRecordedOnSignIn` when the user successfully signs in;
+          // if present, skip the automatic record here to avoid duplicate entries.
+          try {
+            const flagged = sessionStorage.getItem('loginRecordedOnSignIn');
+            if (!flagged) {
+              // recordLogin().catch(() => {}); // NOTE: recordLogin function is missing in the provided code, keeping this line commented.
+            } else {
+              // clear the one-time flag so future sign-ins can be recorded normally
+              try { sessionStorage.removeItem('loginRecordedOnSignIn'); } catch (e) { /* ignore */ }
+            }
+          } catch (e) { /* ignore */ }
+          // Also update user info display
+          showUserInfo(user).catch(console.error);
+        } else {
+          currentUser = null;
+          // Clear appointments when logged out
+          allAppointments = [];
+          renderAppointments();
+          renderCalendar();
+        }
+      });
+
+      // Load recent activity from Firebase
+      async function loadActivities(limit = 20) {
+        try {
+          if (!currentUser || !currentUser.uid) return;
+          if (!activityListEl) return;
+          activityListEl.innerHTML = '<li style="text-align:center;color:#6b7280;padding:12px">Loading…</li>';
+          const snap = await get(ref(db, `activity/${currentUser.uid}`));
+          const data = snap.exists() ? snap.val() : {};
+          const items = Object.keys(data || {}).map(k => data[k]);
+          // newest first
+          items.sort((a, b) => (b && b.ts ? b.ts : 0) - (a && a.ts ? a.ts : 0));
+
+          // Only show specific event kinds: logins, profile edits, or sessions.
+          // Include the session submit/draft meta keys used by the notes flows so they show up
+          // in Recent Activity. Older versions used shorter meta values; keep those too.
+          const allowedMeta = new Set([
+            'login',
+            'profile_edit',
+            'session',
+            'session_open',
+            'session_start',
+            'session_complete',
+            'session_end',
+            // explicit submit/draft markers we write from the notes flows
+            'session_submit',
+            'session_draft'
+          ]);
+          const filtered = items.filter(it => {
+            if (!it) return false;
+            const meta = it.meta ? String(it.meta).toLowerCase() : '';
+            if (allowedMeta.has(meta)) return true;
+            const title = it.title ? String(it.title).toLowerCase() : '';
+            // infer type from title when meta is not set
+            if (title.includes('login') || title.includes('logged in')) return true;
+            if ((title.includes('profile') && (title.includes('update') || title.includes('updated') || title.includes('save'))) || title.includes('updated profile')) return true;
+            if (title.includes('session') || title.includes('started session') || title.includes('completed session') || title.includes('completed session') ) return true;
+            return false;
+          });
+
+          const sliced = filtered.slice(0, limit);
+          if (!sliced.length) {
+            activityListEl.innerHTML = '<li style="text-align:center;color:#6b7280;padding:12px">No recent activity</li>';
+            return;
+          }
+          activityListEl.innerHTML = '';
+          sliced.forEach(it => {
+            const li = document.createElement('li');
+            li.className = 'activity-item';
+            const timeStr = it.ts ? new Date(it.ts).toLocaleString() : '';
+            // use escapeHtml to avoid injection
+            const icon = escapeHtml(it.icon || '🔔');
+            const title = escapeHtml(it.title || '');
+            const subtitle = escapeHtml(it.subtitle || timeStr);
+            li.innerHTML = `\n              <div class="activity-icon">${icon}</div>\n              <div class="activity-content">\n                <div class="activity-title">${title}</div>\n                <div class="activity-sub">${subtitle}</div>\n              </div>`;
+            activityListEl.appendChild(li);
+          });
+        } catch (err) {
+            console.error('loadActivities failed', err);
+            // Provide a helpful message when Firebase rules block the read
+            if (activityListEl) {
+              const isPerm = err && (err.code === 'PERMISSION_DENIED' || String(err.message || '').toLowerCase().includes('permission denied'));
+              if (isPerm) {
+                activityListEl.innerHTML = `\n                <li style="padding:12px;color:#ef4444">\n                  <div style="font-weight:700">Cannot load Recent Activity — permission denied</div>\n                  <div style="color:#6b7280;margin-top:6px">Your Realtime Database rules prevent reading /activity/${currentUser ? currentUser.uid : '{uid}'}.</div>\n                  <div style="margin-top:8px;font-size:13px;color:#6b7280">Add or update these rules in the Firebase console to allow the signed-in user to read/write their activity:</div>\n                  <pre style="background:#f3f4f6;padding:8px;border-radius:6px;margin-top:8px;font-size:12px;overflow:auto">{\n  "rules": {\n    "activity": {\n      "$uid": {\n        ".read": "auth != null && auth.uid === $uid",\n        ".write": "auth != null && auth.uid === $uid"\n      }\n    }\n  }\n}</pre>\n                </li>`;
+                console.info('Suggested rules to allow /activity/{uid} read/write for authenticated users (apply in Firebase Console).');
+              } else {
+                activityListEl.innerHTML = '<li style="text-align:center;color:#ef4444;padding:12px">Failed to load activities</li>';
+              }
+            }
+        }
+      }
+
+      // Record an activity for current user
+      async function recordActivity(entry) {
+        try {
+          if (!currentUser || !currentUser.uid) return null;
+          const payload = {
+            icon: entry.icon || 'ℹ️',
+            title: entry.title || '',
+            subtitle: entry.subtitle || '',
+            meta: entry.meta || '',
+            ts: Date.now()
+          };
+          const p = push(ref(db, `activity/${currentUser.uid}`));
+          await set(p, payload);
+          // update UI optimistically
+          if (activityListEl) {
+            const li = document.createElement('li');
+            li.className = 'activity-item';
+            li.innerHTML = `\n              <div class="activity-icon">${payload.icon}</div>\n              <div class="activity-content">\n                <div class="activity-title">${escapeHtml(payload.title)}</div>\n                <div class="activity-sub">${escapeHtml(payload.subtitle)}</div>\n              </div>`;
+            activityListEl.insertBefore(li, activityListEl.firstChild);
+          }
+          return true;
+        } catch (err) {
+          console.error('recordActivity failed', err);
+          return false;
+        }
+      }
+
+      // expose for other pages to reuse
+      try { window.recordActivity = recordActivity; } catch (e) { /* ignore in strict contexts */ }
+
+      // record login once per session (throttled)
+     
+
+      // small helper to escape HTML when injecting content
+      function escapeHtml(s){
+        if (!s) return '';
+        return String(s).replace(/[&<>\"']/g, function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+        });
+      }
+
+      // Wire refresh button
+      if (refreshActivitiesBtn) {
+        refreshActivitiesBtn.addEventListener('click', (e) => { e.preventDefault(); loadActivities().catch(console.error); });
+      }
+
+      function loadDummyAppointments() {
+        // Get current date for realistic demo data
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const tomorrow = new Date(now.getTime() + 86400000);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const nextWeek = new Date(now.getTime() + 7 * 86400000);
+        const nextWeekStr = nextWeek.toISOString().split('T')[0];
+
+        // Temporary dummy data to test confirmed appointments only - using dynamic dates
+        allAppointments = [
+          {
+            id: '1',
+            student_name: 'Mary Joy',
+            date: today, // Today
+            time: '09:00',
+            concern: 'Career Guidance',
+            status: 'Confirmed'
+          },
+          {
+            id: '2',
+            student_name: 'John Doe',
+            date: today, // Today
+            time: '14:00',
+            concern: 'Stress Management',
+            status: 'Confirmed'
+          },
+          {
+            id: '3',
+            student_name: 'Juan Dela Cruz',
+            date: tomorrowStr, // Tomorrow
+            time: '13:00',
+            concern: 'Academic Pressure',
+            status: 'Confirmed'
+          },
+          {
+            id: '4',
+            student_name: 'Ana Santos',
+            date: nextWeekStr, // Next week
+            time: '10:30',
+            concern: 'Anxiety & Stress',
+            status: 'Confirmed'
+          },
+          {
+            id: '5',
+            student_name: 'Pedro Reyes',
+            date: today, // Today (but pending - should not show)
+            time: '15:00',
+            concern: 'Bullying / Harassment',
+            status: 'Pending'
+          }
+        ];
+
+        console.log('Loaded dummy appointments for today only:', allAppointments);
+        console.log('Today:', today, 'Tomorrow:', tomorrowStr);
+        renderAppointments();
+        renderCalendar();
+      }
+
+      // Load appointments from Firebase (one-time load to avoid circular reference issues)
+      async function initializeAppointments() {
+
+        try {
+          console.log('Loading appointments for counselor:', currentUser.uid);
+
+          // Load appointments once (not real-time to avoid circular reference)
+          const appointmentsRef = ref(db, `appointments_by_counselor/${currentUser.uid}`);
+          const snapshot = await get(appointmentsRef);
+
+          allAppointments = [];
+
+          if (snapshot.exists()) {
+            const counselorAppointmentsData = snapshot.val();
+
+            // Process appointments safely
+            Object.keys(counselorAppointmentsData || {}).forEach(appointmentId => {
+              try {
+                const appointment = counselorAppointmentsData[appointmentId];
+
+                if (!appointment || typeof appointment !== 'object') return;
+
+                const cleanAppointment = {
+                  id: appointmentId,
+                  student_name: appointment.student_name || 'Unknown Student',
+                  date: appointment.date || '',
+                  time: appointment.time || '',
+                  concern: appointment.concern || 'General Consultation',
+                  status: appointment.status || 'Pending'
+                };
+
+                if (cleanAppointment.date && cleanAppointment.time) {
+                  allAppointments.push(cleanAppointment);
+                }
+              } catch (err) {
+                console.error('Error processing appointment', appointmentId, err);
+              }
+            });
+          }
+
+          // Sort appointments
+          allAppointments.sort((a, b) => {
+            const dateA = a.date || '9999-99-99';
+            const dateB = b.date || '9999-99-99';
+            const dateCompare = dateA.localeCompare(dateB);
+            if (dateCompare !== 0) return dateCompare;
+
+            let timeA = a.time || '99:99';
+            let timeB = b.time || '99:99';
+            if (timeA.includes(' - ')) timeA = timeA.split(' - ')[0];
+            if (timeB.includes(' - ')) timeB = timeB.split(' - ')[0];
+            return timeA.localeCompare(timeB);
+          });
+
+          console.log('Loaded appointments from Firebase:', allAppointments.length);
+          renderAppointments();
+          renderCalendar();
+
+        } catch (error) {
+          console.error("Error loading appointments from Firebase:", error);
+          // Fallback to dummy data if Firebase fails
+          console.log("Falling back to dummy data");
+          loadDummyAppointments();
+        }
+      }
+
+      function renderAppointments(){
+        apptsEl.innerHTML = '';
+        const now = new Date();
+        const today = now.toISOString().split('T')[0]; // Format: 2025-10-03
+        const tomorrow = new Date(now.getTime() + 86400000);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        console.log('=== APPOINTMENT DEBUG ===');
+        console.log('Today:', today);
+        console.log('Tomorrow:', tomorrowStr);
+        console.log('Total appointments loaded:', allAppointments.length);
+        console.log('All appointments:', allAppointments.map(apt => ({name: apt.student_name, date: apt.date, status: apt.status})));
+
+        // Get confirmed appointments only, prioritized by date (today → tomorrow → upcoming)
+        const todaysAppts = allAppointments.filter(apt =>
+          apt.date === today &&
+          apt.status === 'Confirmed'
+        ).slice(0, 2); // Max 2 today
+
+        const tomorrowAppts = allAppointments.filter(apt =>
+          apt.date === tomorrowStr &&
+          apt.status === 'Confirmed'
+        ).slice(0, 1); // Max 1 tomorrow
+
+        // Get upcoming confirmed appointments (after tomorrow)
+        const upcomingAppts = allAppointments.filter(apt =>
+          apt.date > tomorrowStr &&
+          apt.status === 'Confirmed'
+        ).slice(0, 1); // Max 1 upcoming
+
+        // Combine with priority: today first, then tomorrow, then upcoming (max 4 total)
+        const displayAppointments = [...todaysAppts, ...tomorrowAppts, ...upcomingAppts].slice(0, 4);
+
+        console.log('Today\'s confirmed appointments:', todaysAppts.length, todaysAppts.map(apt => apt.student_name));
+        console.log('Tomorrow\'s confirmed appointments:', tomorrowAppts.length, tomorrowAppts.map(apt => apt.student_name));
+        console.log('Upcoming confirmed appointments:', upcomingAppts.length, upcomingAppts.map(apt => apt.student_name));
+        console.log('Total display appointments:', displayAppointments.length);
+
+        if (displayAppointments.length === 0) {
+          apptsEl.innerHTML = '<div style="text-align:center;color:#6b7280;padding:20px;font-size:14px;">No upcoming appointments</div>';
+          return;
+        }
+
+        displayAppointments.forEach(apt => {
+          const row = document.createElement('div');
+          row.className = 'appointment';
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', () => {
+            // Record activity for opening an appointment, then navigate
+            try {
+              if (typeof recordActivity === 'function') {
+                recordActivity({ icon: '💬', title: `Opened appointment with ${apt.student_name}`, subtitle: `${apt.date} ${apt.time}`, meta: 'appointment_open' }).catch(() => {});
+              }
+            } catch (e) {}
+            window.location.href = 'counselor_appointment.html';
+          });
+
+          // left: time + info
+          const left = document.createElement('div');
+          left.style.display = 'flex';
+          left.style.alignItems = 'center';
+          left.style.gap = '12px';
+          left.style.flex = '1';
+
+          const time = document.createElement('div');
+          time.className = 'appt-time';
+          time.textContent = formatTime(apt.time);
+
+          const info = document.createElement('div');
+          info.className = 'appt-info';
+          info.innerHTML = '<div class="appt-name">' + (apt.student_name || 'Unknown Student') + '</div><div class="appt-topic" style="color:var(--muted);font-size:13px">' + (apt.concern || 'General Consultation') + '</div>';
+
+          left.appendChild(time);
+          left.appendChild(info);
+
+          // status badge (right)
+          const badge = document.createElement('div');
+          badge.className = 'status-badge';
+          if (apt.date === today) {
+            badge.textContent = 'Today';
+            badge.classList.add('today');
+          } else if (apt.date === tomorrowStr) {
+            badge.textContent = 'Tomorrow';
+            badge.classList.add('tomorrow');
+          } else {
+            // For upcoming appointments, show the formatted date
+            const dateObj = new Date(apt.date);
+            const options = { month: 'short', day: 'numeric' };
+            badge.textContent = dateObj.toLocaleDateString('en-US', options);
+            badge.classList.add('upcoming');
+          }
+
+          row.appendChild(left);
+          row.appendChild(badge);
+          apptsEl.appendChild(row);
+        });
+      }
+
+      function formatTime(timeStr) {
+        if (!timeStr) return 'TBD';
+        if (timeStr.includes(' - ')) {
+          return timeStr.split(' - ')[0];
+        }
+        return timeStr;
+      }
+
+      function renderEvents(){
+        // If the Events container is not present on this page, do nothing.
+        if (!eventsEl) return;
+        eventsEl.innerHTML = '';
+        events.forEach(e=>{
+          const li = document.createElement('li');
+          li.innerHTML = '<div class="event-title">'+e.title+'</div><div class="event-meta">'+e.date+' — '+e.place+'</div>';
+          li.addEventListener('click', ()=> alert('Event: '+e.title));
+          eventsEl.appendChild(li);
+        });
+      }
+
+      function renderTasks(){
+        tasksEl.innerHTML = '';
+        tasks.forEach(t=>{
+          const wrap = document.createElement('div');
+          wrap.className = 'task';
+          const left = document.createElement('div'); left.className='left';
+          const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!t.done;
+          cb.addEventListener('change', async () => {
+            try {
+              t.done = cb.checked;
+              renderTasks();
+
+              // If this task already exists remotely, PATCH the done flag.
+              if (t.remoteKey && typeof window.updateReminder === 'function') {
+                try {
+                  await window.updateReminder(t.remoteKey, { done: !!t.done, updatedAt: new Date().toISOString() });
+                } catch (e) { console.error('updateReminder failed', e); showToast('Sync failed'); }
+              } else if (typeof window.saveTaskToDb === 'function') {
+                // If no remoteKey yet, create the remote item and tag it locally when successful.
+                try {
+                  const res = await window.saveTaskToDb({ id: t.id, text: t.text, due: t.due, done: !!t.done, type: t.type });
+                  if (res && res.ok && res.key) {
+                    t.remoteKey = res.key;
+                    t.id = String(res.key);
+                    renderTasks();
+                  }
+                } catch (e) { console.error('create remote task failed', e); }
+              }
+            } catch (err) { console.error('toggle handler error', err); }
+          });
+          const span = document.createElement('span'); span.className = 'text'+(t.done? ' done':''); span.textContent = t.text;
+          span.style.cursor = 'pointer';
+          span.addEventListener('click', ()=> alert('Task: '+t.text));
+          left.appendChild(cb); left.appendChild(span);
+          const actions = document.createElement('div'); actions.className='task-actions';
+          const due = document.createElement('div'); due.textContent = t.due;
+          due.style.color = 'var(--muted)'; due.style.fontSize = '13px'; due.style.marginRight = '8px';
+          const del = document.createElement('button'); del.textContent = 'Delete'; del.style.background='transparent';del.style.border=0;del.style.color='#ef4444';del.style.cursor='pointer';
+          del.addEventListener('click', ()=> deleteTask(t.id));
+          actions.appendChild(due); actions.appendChild(del);
+          wrap.appendChild(left); wrap.appendChild(actions);
+          tasksEl.appendChild(wrap);
+        });
+        // Update pending count
+        try {
+          const pending = (tasks || []).filter(x => !x.done).length;
+          const cp = document.getElementById('countPending');
+          if (cp) cp.textContent = String(pending);
+        } catch (e) { /* ignore UI update errors */ }
+      }
+
+      function toggleTask(id){
+        tasks = tasks.map(t=> t.id===id? {...t,done:!t.done}:t );
+        renderTasks();
+      }
+      async function deleteTask(id){
+        try {
+          const task = (tasks || []).find(t => String(t.id) === String(id));
+          if (task && task.remoteKey && typeof window.deleteReminder === 'function') {
+            try { await window.deleteReminder(task.remoteKey); } catch (e) { console.error('remote delete failed', e); }
+          }
+        } catch (err) { console.error('deleteTask remote error', err); }
+        tasks = tasks.filter(t=> t.id!==id);
+        renderTasks();
+      }
+      document.getElementById('addTaskBtn').addEventListener('click', ()=>{
+        const input = document.getElementById('newTask');
+        const v = input.value.trim();
+        if(!v) return;
+        tasks.push({id:Date.now(),text:v,due:'',done:false});
+        input.value='';
+        renderTasks();
+      });
+
+      // Clear completed tasks from the UI (and from the in-memory list)
+      const clearDoneBtn = document.getElementById('clearDone');
+      if (clearDoneBtn) {
+        clearDoneBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          try {
+            const toRemove = (tasks || []).filter(t => !!t.done);
+            if (!toRemove.length) { showToast('No completed tasks to clear'); return; }
+
+            // If remote delete API exists, attempt to remove remote copies first
+            const remoteDeletes = [];
+            try {
+              toRemove.forEach(t => {
+                if (t && t.remoteKey && typeof window.deleteReminder === 'function') {
+                  try { remoteDeletes.push(window.deleteReminder(t.remoteKey)); } catch (_e) { /* ignore push error */ }
+                }
+              });
+            } catch (e) { /* ignore */ }
+
+            if (remoteDeletes.length) {
+              try { await Promise.all(remoteDeletes.map(p => p.catch && p.catch(() => {}))); } catch (_) { /* ignore individual errors */ }
+            }
+
+            // Remove completed tasks locally, persist if possible, and re-render
+            tasks = (tasks || []).filter(t => !t.done);
+            if (typeof saveTasks === 'function') {
+              try { saveTasks(); } catch (e) { console.warn('saveTasks failed', e); }
+            }
+            try { renderTasks(); } catch (_) { /* ignore render errors */ }
+            showToast('Cleared completed tasks');
+          } catch (err) {
+            console.error('clearDone handler failed', err);
+            showToast('Failed to clear completed tasks');
+          }
+        });
+      }
+
+      // calendar: basic current month grid with real appointment data
+      function renderCalendar(){
+        calGrid.innerHTML = '';
+        const now = new Date();
+        const year = now.getFullYear(), month = now.getMonth();
+        const first = new Date(year, month, 1);
+        const last = new Date(year, month + 1, 0);
+        const startOffset = first.getDay();
+        const total = last.getDate();
+
+        // Group appointments by date (include all statuses so counts reflect total items)
+        const appointmentsByDate = {};
+        allAppointments.forEach(apt => {
+          if (!apt || !apt.date) return;
+          // Normalize date string to local date parts
+          const aptDate = new Date(apt.date);
+          if (isNaN(aptDate.getTime())) return;
+          if (aptDate.getFullYear() === year && aptDate.getMonth() === month) {
+            const day = aptDate.getDate();
+            if (!appointmentsByDate[day]) appointmentsByDate[day] = [];
+            appointmentsByDate[day].push(apt);
+          }
+        });
+
+        // helper: determine a dominant status for a date (priority: missed > ongoing > confirmed > pending > rescheduled)
+        function dominantStatusForList(list){
+          if (!Array.isArray(list) || list.length===0) return 'default';
+          const priority = ['missed','ongoing','confirmed','pending','rescheduled'];
+          const lower = list.map(i => (i && i.status) ? String(i.status).toLowerCase() : '');
+          for (const p of priority) if (lower.includes(p)) return p;
+          return lower.find(s=>s) || 'default';
+        }
+
+        const cells = startOffset + total;
+        for (let i = 0; i < cells; i++) {
+          const cell = document.createElement('div');
+          const day = i - startOffset + 1;
+          if (i < startOffset) {
+            cell.className = 'cal-cell';
+            cell.textContent = '';
+          } else {
+            const dayAppointments = appointmentsByDate[day] || [];
+            const hasAppointment = dayAppointments.length > 0;
+            const isToday = day === now.getDate();
+            cell.className = 'cal-cell' + (hasAppointment ? ' highlight' : '') + (isToday ? ' today' : '');
+            cell.style.cursor = hasAppointment ? 'pointer' : 'default';
+
+            // Create day content structure
+            const dayContent = document.createElement('div');
+            dayContent.className = 'day-content';
+
+            // Day number
+            const dayNumber = document.createElement('div');
+            dayNumber.className = 'day-number';
+            dayNumber.textContent = day;
+            dayContent.appendChild(dayNumber);
+
+            if (hasAppointment) {
+              // Appointment count badge only (no details in calendar cell)
+              const badge = document.createElement('div');
+              badge.className = 'appt-badge';
+              const dom = dominantStatusForList(dayAppointments);
+              badge.classList.add(`appt-badge--${dom}`);
+              badge.textContent = dayAppointments.length;
+              dayContent.appendChild(badge);
+
+              // On click, open a modal showing appointments for the selected day
+              cell.addEventListener('click', () => {
+                const selectedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                try { showCalendarDayModal(selectedDate, dayAppointments); } catch(e){
+                  // fallback: navigate to appointments page for the date
+                  window.location.href = `counselor_appointment.html?date=${selectedDate}`;
+                }
+              });
+            }
+
+            cell.appendChild(dayContent);
+          }
+          calGrid.appendChild(cell);
+        }
+      }
+
+      // date/time display
+      function updateTime(){
+        const now=new Date();
+        const optionsDate = { weekday:'long', month:'short', day:'numeric', year:'numeric' };
+        const dateStr = now.toLocaleDateString(undefined, optionsDate);
+        const timeStr = now.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+        datetime.textContent = dateStr + ' — ' + timeStr;
+        dateRight.textContent = dateStr + ' • ' + timeStr;
+      }
+      setInterval(updateTime,1000*30);
+      updateTime();
+
+      // Calendar day modal helpers
+      function showCalendarDayModal(dateStr, appointments){
+        const modal = document.getElementById('calendarDayModal');
+        const body = document.getElementById('calendarModalBody');
+        const title = document.getElementById('calendarModalTitle');
+        const openBtn = document.getElementById('openAppointmentsPage');
+        body.innerHTML = '';
+        title.textContent = `Appointments — ${dateStr}`;
+
+        if (!Array.isArray(appointments) || appointments.length === 0) {
+          body.innerHTML = '<div class="p-4 text-center text-gray-500">No appointments for this day.</div>';
+        } else {
+          appointments.forEach(appt => {
+            const row = document.createElement('div');
+            row.className = 'p-3 border-b flex justify-between items-center';
+            const left = document.createElement('div');
+            // status pill
+            const st = (appt && appt.status) ? String(appt.status).toLowerCase() : 'default';
+            const statusClass = `status-pill--${st}`;
+            left.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><div style=\"flex:1\"><div style=\"font-weight:700\">${escapeHtml(appt.student_name || appt.student || 'Student')}</div><div style=\"font-size:13px;color:#6b7280\">${escapeHtml(formatTime(appt.time) || '')}</div></div><div><span class=\"status-pill ${escapeHtml('status-pill--' + st)}\">${escapeHtml(appt.status || '')}</span></div></div>`;
+            const right = document.createElement('div');
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white';
+            viewBtn.textContent = 'Open';
+            viewBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (appt.id) {
+                window.location.href = `counselor_appointment.html?appointmentId=${encodeURIComponent(appt.id)}`;
+              } else {
+                // fallback to date view
+                window.location.href = `counselor_appointment.html?date=${dateStr}`;
+              }
+            });
+            right.appendChild(viewBtn);
+            row.appendChild(left);
+            row.appendChild(right);
+            body.appendChild(row);
+          });
+        }
+
+        openBtn.onclick = () => { window.location.href = `counselor_appointment.html?date=${dateStr}`; };
+
+        // show modal
+        modal.classList.remove('hidden');
+      }
+
+      function closeCalendarDayModal(){
+        const modal = document.getElementById('calendarDayModal');
+        if (modal) modal.classList.add('hidden');
+      }
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const closeBtn = document.getElementById('closeCalendarModal');
+        if (closeBtn) closeBtn.addEventListener('click', closeCalendarDayModal);
+        const modal = document.getElementById('calendarDayModal');
+        if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeCalendarDayModal(); });
+      });
+
+      // clickable top controls
+  document.getElementById('viewAllAppts').addEventListener('click', () => window.location.href = 'counselor_appointment.html');
+  // The events card was replaced by Recent Activity — guard listener to avoid null error
+  const viewAllEventsBtn = document.getElementById('viewAllEvents');
+  if (viewAllEventsBtn) viewAllEventsBtn.addEventListener('click', () => alert('View All Events'));
+
+      // Notification & Profile dropdown behavior
+      const notifBtnEl = document.getElementById('notifBtn');
+      const notifDropdown = document.getElementById('notificationDropdown');
+      const profileBtn = document.getElementById('profileBtn');
+      const profileDropdown = document.getElementById('profileDropdown');
+      const viewAccountLink = document.getElementById('viewAccountLink');
+      const dropdownLogoutBtn = document.getElementById('dropdownLogoutBtn');
+
+      // Notification click handler is attached in the consolidated notification script below
+      if (notifBtnEl) {
+        // noop — actual handler attached later to avoid duplicate listeners
+      }
+
+      function showToast(msg, duration = 2200){
+        try{
+          const ex = document.getElementById('globalToast');
+          if(ex) ex.remove();
+          const t = document.createElement('div');
+          t.id = 'globalToast';
+          t.textContent = msg;
+          t.style.position='fixed'; t.style.right='16px'; t.style.bottom='16px';
+          t.style.background='#111827'; t.style.color='#fff'; t.style.padding='10px 14px';
+          t.style.borderRadius='10px'; t.style.boxShadow='0 10px 24px rgba(0,0,0,.18)'; t.style.zIndex='9999'; t.style.fontSize='14px';
+          t.style.opacity='0'; t.style.transform='translateY(6px)'; t.style.transition='opacity .18s ease, transform .18s ease';
+          document.body.appendChild(t);
+          requestAnimationFrame(()=>{ t.style.opacity='1'; t.style.transform='translateY(0)'; });
+          setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(6px)'; setTimeout(()=> t.remove(), 200); }, duration);
+        }catch(_){ }
+      }
+
+      function toggleDropdown(state){
+        if (!profileDropdown) return;
+        if (typeof state === 'boolean') {
+          profileDropdown.style.display = state ? 'block' : 'none';
+          profileDropdown.setAttribute('aria-hidden', state ? 'false' : 'true');
+        } else {
+          const isOpen = profileDropdown.style.display === 'block';
+          profileDropdown.style.display = isOpen ? 'none' : 'block';
+          profileDropdown.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+        }
+      }
+      function closeDropdown(){ profileDropdown.style.display='none'; }
+      // ensure aria-hidden when closing
+      function closeDropdown(){ if(profileDropdown){ profileDropdown.style.display='none'; profileDropdown.setAttribute('aria-hidden','true'); } }
+
+      profileBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleDropdown(); });
+      document.addEventListener('click', (e)=>{
+        try {
+          if (profileDropdown && profileDropdown.style.display === 'block' && !profileDropdown.contains(e.target) && e.target !== profileBtn) {
+            profileDropdown.style.display = 'none';
+            profileDropdown.setAttribute('aria-hidden','true');
+          }
+          if (typeof notifDropdown !== 'undefined' && notifDropdown && notifDropdown.style.display === 'block' && !notifDropdown.contains(e.target) && e.target !== notifBtnEl) {
+            notifDropdown.style.display = 'none';
+            notifDropdown.setAttribute('aria-hidden','true');
+          }
+        } catch(_) {}
+      });
+      document.addEventListener('keydown', (e)=>{
+        if (e.key === 'Escape') {
+          try { if (profileDropdown) { profileDropdown.style.display='none'; profileDropdown.setAttribute('aria-hidden','true'); } } catch(_){}
+          try { if (typeof notifDropdown !== 'undefined' && notifDropdown) { notifDropdown.style.display='none'; notifDropdown.setAttribute('aria-hidden','true'); } } catch(_){}
+        }
+      });
+
+      if (viewAccountLink){
+        viewAccountLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          closeDropdown();
+          // Navigate to settings page where account profile can be viewed/edited
+        window.location.href = 'counselor_viewAccount.html';
+        });
+      }
+
+      // Styled confirmation modal (no native confirm). Supports two signatures:
+      // 1) showConfirm({ title, message, confirmText, cancelText, variant })
+      // 2) showConfirm(message, { okText, cancelText, okBg, okHover, okColor })
+      function showConfirm(arg1, arg2){
+        // Normalize options
+        let title='Confirm', message='Are you sure?', confirmText='Confirm', cancelText='Cancel', variant='primary';
+        let okBg, okHover, okColor;
+        if (typeof arg1 === 'string') {
+          message = arg1;
+          if (arg2 && typeof arg2 === 'object') {
+            confirmText = arg2.okText || confirmText;
+            cancelText = arg2.cancelText || cancelText;
+            okBg = arg2.okBg; okHover = arg2.okHover; okColor = arg2.okColor;
+            if (!okBg && !okHover && !okColor) variant = arg2.variant || variant;
+            if (!okBg && variant === 'danger') okBg = '#dc2626', okHover = '#b91c1c', okColor = '#fff';
+          }
+        } else if (typeof arg1 === 'object') {
+          const o = arg1 || {};
+          title = o.title || title;
+          message = o.message || message;
+          confirmText = o.confirmText || confirmText;
+          cancelText = o.cancelText || cancelText;
+          variant = o.variant || variant;
+        }
+
+        // Try to use the DOM-based modal if available
+        const modal = document.getElementById('confirmModal');
+        const msgEl = document.getElementById('confirmModalMessage');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+        if (modal && msgEl && okBtn && cancelBtn) {
+          msgEl.textContent = message || '';
+          if (titleEl) titleEl.textContent = title || 'Confirm';
+          okBtn.textContent = confirmText || 'Yes';
+          cancelBtn.textContent = cancelText || 'No';
+
+          // Button styling
+          const baseBg = okBg || (variant==='danger' ? '#dc2626' : '#0f6a56');
+          const hoverBg = okHover || (variant==='danger' ? '#b91c1c' : '#0c5a49');
+          const textColor = okColor || '#ffffff';
+          const radius = '12px';
+          okBtn.style.background = baseBg;
+          okBtn.style.color = textColor;
+          okBtn.style.border = '0';
+          okBtn.style.padding = '10px 16px';
+          okBtn.style.borderRadius = radius;
+          okBtn.style.cursor = 'pointer';
+          okBtn.style.fontWeight = '700';
+          okBtn.style.minWidth = '96px';
+          okBtn.style.boxShadow = '0 6px 18px rgba(0,0,0,0.10)';
+          okBtn.onmouseenter = () => okBtn.style.background = hoverBg;
+          okBtn.onmouseleave = () => okBtn.style.background = baseBg;
+          okBtn.onfocus = () => okBtn.style.outline = '3px solid rgba(15,106,86,0.25)';
+          okBtn.onblur = () => okBtn.style.outline = '';
+
+          cancelBtn.style.background = '#f3f4f6';
+          cancelBtn.style.color = '#111827';
+          cancelBtn.style.border = '1px solid #e5e7eb';
+          cancelBtn.style.padding = '10px 16px';
+          cancelBtn.style.borderRadius = radius;
+          cancelBtn.style.cursor = 'pointer';
+          cancelBtn.style.fontWeight = '700';
+          cancelBtn.style.minWidth = '96px';
+          cancelBtn.onmouseenter = () => cancelBtn.style.background = '#e5e7eb';
+          cancelBtn.onmouseleave = () => cancelBtn.style.background = '#f3f4f6';
+
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+          return new Promise(resolve => {
+            function cleanup(){
+              modal.style.display = 'none';
+              document.body.style.overflow = 'auto';
+              okBtn.removeEventListener('click', onOk);
+              cancelBtn.removeEventListener('click', onCancel);
+              document.removeEventListener('keydown', onKey);
+            }
+            function onOk(){ cleanup(); resolve(true); }
+            function onCancel(){ cleanup(); resolve(false); }
+            function onKey(e){ if(e.key==='Escape') onCancel(); if(e.key==='Enter') onOk(); }
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            document.addEventListener('keydown', onKey);
+          });
+        }
+
+        // Fallback to programmatic overlay (in case DOM modal isn't present)
+        return new Promise(resolve => {
+          const overlay = document.createElement('div');
+          overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='rgba(0,0,0,0.45)';
+          overlay.style.display='flex'; overlay.style.alignItems='center'; overlay.style.justifyContent='center';
+          overlay.style.zIndex='2000';
+
+          const panel = document.createElement('div');
+          panel.style.background='#fff'; panel.style.borderRadius='12px'; panel.style.boxShadow='0 12px 40px rgba(2,6,23,0.2)';
+          panel.style.padding='18px'; panel.style.maxWidth='420px'; panel.style.width='92%';
+
+          const h = document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.style.fontSize='16px'; h.textContent=title;
+          const p = document.createElement('div'); p.style.color='#374151'; p.style.fontSize='14px'; p.style.marginBottom='14px'; p.textContent=message;
+          const actions = document.createElement('div'); actions.style.display='flex'; actions.style.justifyContent='flex-end'; actions.style.gap='8px';
+
+          const cancel = document.createElement('button');
+          cancel.textContent = cancelText; cancel.style.padding='10px 16px'; cancel.style.border='1px solid #e5e7eb'; cancel.style.borderRadius='12px';
+          cancel.style.background='#f3f4f6'; cancel.style.cursor='pointer'; cancel.style.fontWeight='700'; cancel.style.color='#111827';
+          cancel.addEventListener('mouseenter', ()=> cancel.style.background = '#e5e7eb');
+          cancel.addEventListener('mouseleave', ()=> cancel.style.background = '#f3f4f6');
+
+          const confirm = document.createElement('button');
+          confirm.textContent = confirmText; confirm.style.padding='10px 16px'; confirm.style.border='0'; confirm.style.borderRadius='12px'; confirm.style.cursor='pointer'; confirm.style.fontWeight='700';
+          let baseBg = okBg || (variant==='danger' ? '#dc2626' : '#0f6a56');
+          let hoverBg = okHover || (variant==='danger' ? '#b91c1c' : '#0c5a49');
+          let textColor = okColor || '#fff';
+          confirm.style.background = baseBg; confirm.style.color = textColor; confirm.style.boxShadow = '0 6px 18px rgba(0,0,0,0.10)';
+          confirm.addEventListener('mouseover', ()=> { confirm.style.background = hoverBg; });
+          confirm.addEventListener('mouseout', ()=> { confirm.style.background = baseBg; });
+
+          function cleanup(result){ document.removeEventListener('keydown', onKey); overlay.remove(); resolve(result); }
+          function onKey(e){ if(e.key==='Escape') cleanup(false); if(e.key==='Enter') cleanup(true); }
+
+          cancel.addEventListener('click', ()=> cleanup(false));
+          confirm.addEventListener('click', ()=> cleanup(true));
+          overlay.addEventListener('click', (e)=>{ if(e.target===overlay) cleanup(false); });
+
+          actions.appendChild(cancel); actions.appendChild(confirm);
+          panel.appendChild(h); panel.appendChild(p); panel.appendChild(actions);
+          overlay.appendChild(panel);
+          document.body.appendChild(overlay);
+          document.addEventListener('keydown', onKey);
+          setTimeout(()=> confirm.focus(), 0);
+        });
+      }
+      // expose for consistency
+      window.showConfirm = window.showConfirm || showConfirm;
+
+      async function performSignOut(){
+        if(window.logout){ await window.logout(); return; }
+        if(window.firebaseAuth && window.firebaseAuth.signOut){ await window.firebaseAuth.signOut(); return; }
+        if(window.firebase && window.firebase.auth){ await window.firebase.auth().signOut(); return; }
+        try{ const { getAuth, signOut } = await import('https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js'); const auth = getAuth(); await signOut(auth); }catch(_){ }
+      }
+      function clearAppCaches(){
+        try{
+          const known=['__phHolidays','__holidayDates','weeklyAvailabilityCache','dateExceptionsCache','ss_demo_tasks_v1','ss_demo_notes_v1'];
+          known.forEach(k=> localStorage.removeItem(k));
+          const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.startsWith('ss_')) rm.push(k); }
+          rm.forEach(k=> localStorage.removeItem(k));
+        }catch(_){ }
+      }
+      dropdownLogoutBtn.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        toggleDropdown(false);
+        try{
+          const ok = await showConfirm('Are you sure you want to log out?', {
+            okText: 'Yes',
+            cancelText: 'No',
+            okBg: '#0f6a56',
+            okHover: '#0c5a49',
+            okColor: '#ffffff'
+          });
+          if(!ok) return;
+          dropdownLogoutBtn.disabled = true; dropdownLogoutBtn.style.opacity = '.6';
+          await performSignOut();
+          clearAppCaches();
+          window.location.href = 'counselor_login.html';
+        } catch(err){
+          console.error('Logout failed', err);
+          showToast('Failed to log out. Please try again.');
+        } finally {
+          dropdownLogoutBtn.disabled = false; dropdownLogoutBtn.style.opacity = '';
+        }
+      });
+
+      // sidebar nav clicks — map items to pages (adjust paths if your files use different names)
+      // select all nav items (including the Settings button in the footer)
+      // Expose NAV_MAP on window so non-module scripts (bottom nav) can access it
+      window.NAV_MAP = {
+        'home': null,                        // in-page (scroll to top)
+        'appointments': './counselor_appointment.html',
+        'students': './counselor_student.html',
+        'messages': './counselor_message.html',
+        'settings': './counselor_setting.html'
+      };
+      // Keep a local const for module-scoped code that expects NAV_MAP
+      const NAV_MAP = window.NAV_MAP;
+
+      // Update an existing reminder by remoteKey using the Realtime DB REST API (PATCH).
+      // Exposed on window so other scripts can call it.
+      window.updateReminder = async function(remoteKey, updates){
+        if (!currentUser || !currentUser.uid) throw new Error('not-authenticated');
+        if (!remoteKey) throw new Error('missing-remoteKey');
+        try {
+          // build DB URL
+          const dbUrl = (db && db.app && db.app.options && db.app.options.databaseURL) || null;
+          if (!dbUrl) throw new Error('databaseURL-not-found');
+
+          // get id token if available
+          let idToken = null;
+          try { if (currentUser && typeof currentUser.getIdToken === 'function') idToken = await currentUser.getIdToken(); } catch(_){ idToken = null; }
+
+          const patchUrl = dbUrl.replace(/\/$/, '') + '/reminders/' + encodeURIComponent(currentUser.uid) + '/' + encodeURIComponent(remoteKey) + '.json' + (idToken ? ('?auth=' + encodeURIComponent(idToken)) : '');
+
+          const resp = await fetch(patchUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates || {})
+          });
+          const j = await resp.json();
+          if (!resp.ok) {
+            throw new Error('update-failed:' + JSON.stringify(j));
+          }
+          return { ok: true, result: j };
+        } catch (e) {
+          console.error('updateReminder error', e);
+          throw e;
+        }
+      };
+
+      // Delete an existing reminder by remoteKey using the Realtime DB REST API (DELETE).
+      window.deleteReminder = async function(remoteKey){
+        if (!currentUser || !currentUser.uid) throw new Error('not-authenticated');
+        if (!remoteKey) throw new Error('missing-remoteKey');
+        try {
+          const dbUrl = (db && db.app && db.app.options && db.app.options.databaseURL) || null;
+          if (!dbUrl) throw new Error('databaseURL-not-found');
+          let idToken = null;
+          try { if (currentUser && typeof currentUser.getIdToken === 'function') idToken = await currentUser.getIdToken(); } catch(_){ idToken = null; }
+          const delUrl = dbUrl.replace(/\/$/, '') + '/reminders/' + encodeURIComponent(currentUser.uid) + '/' + encodeURIComponent(remoteKey) + '.json' + (idToken ? ('?auth=' + encodeURIComponent(idToken)) : '');
+          const resp = await fetch(delUrl, { method: 'DELETE' });
+          if (!resp.ok) {
+            const j = await resp.text();
+            throw new Error('delete-failed:' + j);
+          }
+          return { ok: true };
+        } catch (e) { console.error('deleteReminder error', e); throw e; }
+      };
+
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          // visual active state
+          document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const name = (btn.getAttribute('data-name') || '').toLowerCase();
+          const target = NAV_MAP[name];
+
+          if (target) {
+            // navigate to a dedicated page
+            window.location.href = target;
+            return;
+          }
+
+          // in-page behavior (Home)
+          if (name === 'home') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+
+          // close off-canvas sidebar on mobile after navigation
+          if (window.matchMedia('(max-width:720px)').matches) {
+            document.body.classList.remove('show-sidebar');
+          }
+        });
+
+        // keyboard support (Enter / Space)
+        btn.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
+        });
+      });
+
+      // burger toggle
+      document.getElementById('burger').addEventListener('click', ()=>{
+        // small screens: toggle off-canvas sidebar
+        if(window.matchMedia('(max-width:720px)').matches){
+          document.body.classList.toggle('show-sidebar');
+        } else {
+          // desktop: keep the existing collapsed (icon-only) behaviour
+          document.body.classList.toggle('collapsed');
+        }
+      });
+      // optional: close off-canvas when clicking outside (mobile)
+      document.addEventListener('click', (e)=>{
+        if(window.matchMedia('(max-width:720px)').matches){
+          const sidebar = document.querySelector('.sidebar');
+          const burger = document.getElementById('burger');
+          if(document.body.classList.contains('show-sidebar') && !sidebar.contains(e.target) && !burger.contains(e.target)){
+            document.body.classList.remove('show-sidebar');
+          }
+        }
+      });
+
+      // initial render
+      renderAppointments();
+      // renderEvents is a no-op if the events list is not on the page
+      renderEvents();
+      renderTasks();
+      renderCalendar();
+
+      // helper: save a task to Firebase under the 'reminders/{uid}' node. Uses the module-level currentUser
+      // Exposed globally so non-module scripts can call it.
+      window.saveTaskToDb = async function(taskData){
+        return new Promise(async (resolve, reject) => {
+          try{
+            // require authenticated user
+            if (!currentUser || !currentUser.uid) return reject(new Error('not-authenticated'));
+
+            const remindersRoot = ref(db, `reminders/${currentUser.uid}`);
+            // create a push ref to get a stable child key
+            const pushRef = push(remindersRoot);
+            const now = new Date().toISOString();
+
+            function _genSimpleId(){ return 't_' + Math.random().toString(36).slice(2,9); }
+
+            const id = (taskData && (taskData.id !== undefined && taskData.id !== null)) ? String(taskData.id) : (pushRef && pushRef.key) || _genSimpleId();
+
+            // Build a minimal safe payload (avoid nested objects)
+            const payload = {
+              id: id,
+              text: String((taskData && taskData.text) || ''),
+              due: String((taskData && taskData.due) || ''),
+              type: String((taskData && taskData.type) || 'task'),
+              done: !!(taskData && taskData.done),
+              createdAt: (taskData && taskData.createdAt) || now,
+              updatedAt: now
+            };
+
+            // Ensure all fields are primitives (no DOM nodes, functions, refs, or circulars)
+            Object.keys(payload).forEach(k => {
+              const v = payload[k];
+              if (v === undefined) payload[k] = null;
+              else if (typeof v === 'object' && v !== null) {
+                try { payload[k] = JSON.stringify(v); } catch(_) { payload[k] = String(v); }
+              }
+            });
+
+            // Debug: small log of payload shape (no large dumps)
+            try { console.log('saveTaskToDb -> writing', { keys: Object.keys(payload), id: payload.id, textLen: String(payload.text||'').length }); } catch(_){}
+
+            // write to the push location
+            try {
+              await set(pushRef, payload);
+              resolve({ ok: true, key: pushRef.key });
+            } catch (err2) {
+              console.warn('saveTaskToDb initial set failed, attempting REST fallback', err2);
+              // REST fallback: post directly to the Realtime DB REST endpoint using ID token
+              try {
+                // determine database URL
+                const dbUrl = (db && db.app && db.app.options && db.app.options.databaseURL) || null;
+                if (!dbUrl) throw new Error('databaseURL-not-found');
+
+                // get id token for authenticated request
+                let idToken = null;
+                try { if (currentUser && typeof currentUser.getIdToken === 'function') idToken = await currentUser.getIdToken(); } catch(_){ idToken = null; }
+
+                const postUrl = dbUrl.replace(/\/$/, '') + '/reminders/' + encodeURIComponent(currentUser.uid) + '.json' + (idToken ? ('?auth=' + encodeURIComponent(idToken)) : '');
+
+                const resp = await fetch(postUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                });
+                const j = await resp.json();
+                if (resp.ok && j && j.name) {
+                  console.warn('saveTaskToDb REST fallback succeeded', j.name);
+                  resolve({ ok: true, key: j.name, via: 'rest' });
+                } else {
+                  throw new Error('rest-failed:' + JSON.stringify(j));
+                }
+              } catch (err3) {
+                console.error('saveTaskToDb REST fallback also failed', err3);
+                throw err3;
+              }
+            }
+          } catch(err){
+            console.error('saveTaskToDb set error', err);
+            reject(err);
+          }
+        });
+      };
+
+      // Realtime listener: sync remote reminders into the UI
+      // Calls `window.mergeRemoteReminders(remoteArray)` (exposed by the non-module UI) when available.
+      // If not, falls back to merging into localStorage and dispatching a 'reminders:updated' event.
+      let _remindersUnsub = null;
+      watchAuth((u) => {
+        try { if (_remindersUnsub) { _remindersUnsub(); _remindersUnsub = null; } } catch (_) {}
+        if (u && u.uid) {
+          try {
+            const remRef = ref(db, `reminders/${u.uid}`);
+            _remindersUnsub = onValue(remRef, (snap) => {
+              const val = snap.val() || {};
+              const remote = Object.keys(val || {}).map(k => ({ ...(val[k] || {}), remoteKey: k }));
+              if (window.mergeRemoteReminders && typeof window.mergeRemoteReminders === 'function') {
+                try { window.mergeRemoteReminders(remote); } catch (err) { console.error('mergeRemoteReminders failed', err); }
+              } else {
+                try {
+                  // Merge remote snapshot directly into the in-memory tasks list and render.
+                  const mapped = (remote || []).map(rt => ({
+                    id: rt.remoteKey || rt.id,
+                    text: rt.text || '',
+                    due: rt.due || '',
+                    type: rt.type || 'task',
+                    done: !!rt.done,
+                    remoteKey: rt.remoteKey || rt.id,
+                    createdAt: rt.createdAt,
+                    updatedAt: rt.updatedAt
+                  }));
+                  tasks = mapped;
+                  try { renderTasks(); } catch(_){ window.dispatchEvent(new CustomEvent('reminders:updated')); }
+                } catch (e) { console.error('reminders fallback merge failed', e); }
+              }
+            }, (err) => { console.warn('reminders:onValue error', err); });
+          } catch (e) { console.error('Failed to attach reminders listener', e); }
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    /* ---- To-Do logic (exact behaviour from todo.html) ---- */
+    (function(){
+      function genId(){ return 't_' + Math.random().toString(36).slice(2,9); }
+      // No demo/sample tasks by default; start with an empty sampleTasks array so nothing is seeded
+      const sampleTasks = [];
+      const STORAGE_KEY = 'ss_demo_tasks_v1';
+      let tasks = loadTasks();
+
+      function loadTasks(){
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+
+          // If nothing is stored, start with an empty list (do NOT seed demo tasks).
+          if(!raw) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+            return [];
+          }
+
+          // Parse stored tasks and remove any known demo entries that may have been seeded previously.
+          const parsed = JSON.parse(raw || '[]');
+          if (!Array.isArray(parsed)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+            return [];
+          }
+
+          // Filter logic:
+          // - remove previously-known demo patterns
+          // - remove obviously junk entries (very short texts <= 2 chars)
+          // Keep a backup of removed items so they can be recovered if needed.
+          const removed = [];
+          const filtered = parsed.filter(t => {
+            try {
+              if (!t || typeof t.text !== 'string') return true; // keep non-string entries
+              const txt = t.text.trim();
+              const low = txt.toLowerCase();
+
+              // Known demo patterns
+              if (low.includes('create session note') || low.includes('prepare weekly report') || low.includes('follow-up')) {
+                removed.push(t); return false;
+              }
+
+              // Junk: single-letter or very short entries (likely accidental inputs)
+              if (txt.length <= 2) { removed.push(t); return false; }
+
+              return true;
+            } catch (_) { return true; }
+          });
+
+          // If we removed demo/junk entries, persist the cleaned list and back them up
+          if (removed.length > 0) {
+            try {
+              const bkKey = 'ss_demo_tasks_backup_' + Date.now();
+              localStorage.setItem(bkKey, JSON.stringify(removed));
+            } catch (_) { /* ignore backup errors */ }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+            console.log('Removed', removed.length, 'demo/junk tasks and saved backup.');
+          }
+
+          return filtered;
+        } catch(e) {
+          // On error, reset to empty to avoid showing demo content
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify([])); } catch(_){}
+          return [];
+        }
+      }
+      function saveTasks(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+
+      const taskListEl = document.getElementById('tasksList');
+      const countPendingEl = document.getElementById('countPending');
+
+      // Delete a task by id: remove remotely if possible, then update UI.
+      async function performDelete(id){
+        try {
+          const task = (tasks || []).find(t => String(t.id) === String(id));
+          if (task && task.remoteKey && typeof window.deleteReminder === 'function') {
+            try { await window.deleteReminder(task.remoteKey); } catch (e) { console.error('remote delete failed', e); showToast('Delete failed'); }
+          }
+        } catch (err) { console.error('performDelete error', err); }
+        tasks = tasks.filter(x=> String(x.id) !== String(id));
+        saveTasks(); renderTasks();
+      }
+
+      function renderTasks(){
+        taskListEl.innerHTML = '';
+        tasks.forEach(t => {
+          const li = document.createElement('li');
+          li.style.listStyle = 'none';
+          li.style.display = 'flex';
+          li.style.justifyContent = 'space-between';
+          // Use flex-start so inner content is left-aligned (prevents unexpected centering on mobile)
+          li.style.alignItems = 'flex-start';
+          li.style.padding = '10px';
+          li.style.border = '1px solid #e6eef7';
+          li.style.borderRadius = '8px';
+          li.style.background = t.done ? '#f0fdf4' : '#fff';
+          if(t.done) li.style.opacity = '0.6';
+
+          // left: checkbox + text
+          const left = document.createElement('div');
+          left.style.display = 'flex';
+          left.style.gap = '8px';
+          // Align checkbox + text to the top/left so text is not centered vertically
+          left.style.alignItems = 'flex-start';
+          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!t.done;
+          cb.addEventListener('change', async () => {
+            try {
+              t.done = cb.checked;
+              saveTasks();
+              renderTasks();
+
+              // Persist change to remote DB when possible
+              if (t.remoteKey && typeof window.updateReminder === 'function') {
+                try {
+                  await window.updateReminder(t.remoteKey, { done: !!t.done, updatedAt: new Date().toISOString() });
+                } catch (e) { console.error('updateReminder failed', e); }
+              } else if (typeof window.saveTaskToDb === 'function') {
+                try {
+                  const res = await window.saveTaskToDb({ id: t.id, text: t.text, due: t.due, done: !!t.done, type: t.type });
+                  if (res && res.ok && res.key) {
+                    t.remoteKey = res.key;
+                    t.id = String(res.key);
+                    saveTasks(); renderTasks();
+                  }
+                } catch (e) { console.error('create remote task failed', e); }
+              }
+            } catch (err) { console.error('checkbox change error', err); }
+          });
+          const txtWrap = document.createElement('div'); txtWrap.style.cursor = 'pointer';
+          txtWrap.addEventListener('click', ()=> onTaskClick(t));
+          const title = document.createElement('div'); title.style.fontWeight = '600'; title.style.fontSize = '14px'; title.textContent = t.text;
+          const meta = document.createElement('div'); meta.style.fontSize='12px'; meta.style.color='var(--muted)'; meta.textContent = t.due ? `Due: ${t.due}` : '';
+          txtWrap.appendChild(title); txtWrap.appendChild(meta);
+          left.appendChild(cb); left.appendChild(txtWrap);
+
+          // right: actions
+          const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px'; right.style.alignItems='center';
+          if(t.type === 'note'){
+            const openBtn = document.createElement('button');
+            openBtn.textContent = 'Open note';
+            openBtn.style.padding = '6px 8px';
+            openBtn.style.borderRadius = '8px';
+            openBtn.style.border = '0';
+            openBtn.style.background = '#eff6ff';
+            openBtn.style.color = '#1e3a8a';
+            openBtn.style.cursor = 'pointer';
+            openBtn.addEventListener('click', ()=> onTaskClick(t));
+            right.appendChild(openBtn);
+          }
+          const del = document.createElement('button');
+          del.textContent = 'Delete';
+          del.style.background = 'transparent';
+          del.style.border = '0';
+          del.style.color = '#ef4444';
+          del.style.cursor = 'pointer';
+          del.addEventListener('click', ()=> { try { performDelete(t.id); } catch(e){ console.error(e); } });
+          right.appendChild(del);
+
+          li.appendChild(left);
+          li.appendChild(right);
+          taskListEl.appendChild(li);
+        });
+
+        const pending = tasks.filter(t=> !t.done).length;
+        countPendingEl.textContent = pending;
+      }
+
+      // Allow the module script (Firebase listener) to merge remote reminders into the page.
+      // remoteTasks is an array of items read from `reminders/{uid}`; remote entries may include `remoteKey`.
+      window.mergeRemoteReminders = function(remoteTasks){
+        try {
+          const byId = {};
+          (tasks || []).forEach(t => { if (t && t.id) byId[t.id] = t; });
+          (remoteTasks || []).forEach(rt => {
+            const id = rt.id || rt.remoteKey;
+            if (!id) return;
+            const local = byId[id] || {};
+            byId[id] = {
+              id: id,
+              text: rt.text || local.text || '',
+              due: rt.due || local.due || '',
+              type: rt.type || local.type || 'task',
+              done: (typeof local.done === 'boolean') ? local.done : !!rt.done,
+              remoteKey: rt.remoteKey || local.remoteKey,
+              createdAt: rt.createdAt || local.createdAt,
+              updatedAt: rt.updatedAt || local.updatedAt
+            };
+          });
+          tasks = Object.values(byId).sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+          saveTasks();
+          renderTasks();
+        } catch (e) { console.error('mergeRemoteReminders error', e); }
+      };
+
+      // If a fallback merge wrote to localStorage, refresh tasks when signaled
+      window.addEventListener('reminders:updated', () => { tasks = loadTasks(); renderTasks(); });
+
+      // actions
+      document.getElementById('addTaskBtn').addEventListener('click', async ()=>{
+        const txt = document.getElementById('newTask').value.trim();
+        const due = document.getElementById('newDue').value || '';
+        if(!txt) return alert('Please enter task text.');
+        const newTask = { id: genId(), text: txt, due, type: txt.toLowerCase().includes('note') ? 'note':'task', done:false };
+        const m = txt.match(/Create Session Note[\s:-]*([^(]+)/i);
+        if(m) newTask.student = m[1].trim();
+
+        // Try to save to Firebase if user is authenticated. If that fails, fall back to localStorage.
+        let savedToDb = false;
+        if (window.saveTaskToDb) {
+          try{
+            const res = await window.saveTaskToDb(newTask);
+            if (res && res.ok) {
+              savedToDb = true;
+              // Optionally store the remote key on the task for local sync
+              newTask.remoteKey = res.key;
+              // keep a local copy too for UI immediacy
+              tasks.unshift(newTask);
+              saveTasks();
+              renderTasks();
+            }
+          }catch(err){
+            // ignore and fallback to local only
+            console.warn('Save to DB failed, falling back to localStorage', err);
+          }
+        }
+
+        if (!savedToDb) {
+          tasks.unshift(newTask);
+          saveTasks();
+          renderTasks();
+        }
+
+        document.getElementById('newTask').value=''; document.getElementById('newDue').value='';
+      });
+
+  document.getElementById('clearDone')?.addEventListener('click', ()=>{ tasks = tasks.filter(t=> !t.done); saveTasks(); renderTasks(); });
+  // Reset demo button removed — no-op kept for backward compatibility
+
+      // modal & notes (demo)
+      const modal = document.getElementById('modal');
+      const closeModalBtn = document.getElementById('closeModal');
+      const noteForm = document.getElementById('noteForm');
+
+      function onTaskClick(task){
+        if(task.type === 'note') { openModalWithTask(task); }
+        else { const q = confirm(`Task: ${task.text}\n\nMark as done?`); if(q){ task.done = true; saveTasks(); renderTasks(); } }
+      }
+
+      function openModalWithTask(task){
+        document.getElementById('modalTitle').textContent = 'Create Session Note';
+        document.getElementById('studentName').value = task.student || '';
+        const dt = (task.due ? task.due + 'T' + (task.time ? task.time+':00' : '09:00:00') : new Date().toISOString().slice(0,16));
+        document.getElementById('noteDate').value = dt;
+        document.getElementById('issueType').value = task.issue || '— select —';
+        document.getElementById('summary').value = '';
+        document.getElementById('interventions').value = '';
+        document.getElementById('nextSteps').value = '';
+        modal.style.display = 'flex';
+        noteForm.dataset.taskId = task.id;
+      }
+
+  closeModalBtn?.addEventListener('click', ()=> { modal.style.display='none'; });
+
+  noteForm?.addEventListener('submit', (e)=> {
+        e.preventDefault();
+        const taskId = noteForm.dataset.taskId;
+        const note = {
+          student: document.getElementById('studentName').value,
+          datetime: document.getElementById('noteDate').value,
+          issue: document.getElementById('issueType').value,
+          summary: document.getElementById('summary').value,
+          interventions: document.getElementById('interventions').value,
+          nextSteps: document.getElementById('nextSteps').value,
+          createdAt: new Date().toISOString()
+        };
+        const notesKey = 'ss_demo_notes_v1';
+        const existing = JSON.parse(localStorage.getItem(notesKey) || '[]');
+        existing.unshift(note);
+        localStorage.setItem(notesKey, JSON.stringify(existing));
+        tasks = tasks.map(t => t.id === taskId ? ({...t, done:true}) : t);
+        saveTasks(); renderTasks();
+        alert('Session note saved (demo). Task marked as done.');
+        modal.style.display = 'none';
+      });
+
+  document.getElementById('saveDraft')?.addEventListener('click', ()=> {
+        const note = {
+          student: document.getElementById('studentName').value,
+          datetime: document.getElementById('noteDate').value,
+          issue: document.getElementById('issueType').value,
+          summary: document.getElementById('summary').value,
+          interventions: document.getElementById('interventions').value,
+          nextSteps: document.getElementById('nextSteps').value,
+          draft: true,
+          createdAt: new Date().toISOString()
+        };
+        const notesKey = 'ss_demo_notes_v1';
+        const existing = JSON.parse(localStorage.getItem(notesKey) || '[]');
+        existing.unshift(note);
+        localStorage.setItem(notesKey, JSON.stringify(existing));
+        alert('Draft saved (demo).');
+        modal.style.display = 'none';
+      });
+    })();
+ 
+
+    // small helper: clone main sidebar items into the bottom nav on small screens
+    (function(){
+      const bottom = document.getElementById('bottomNav');
+      const navContainer = document.getElementById('nav');
+      // Select all nav items including the Settings button in the footer (which is not directly in #nav)
+      const settingsItem = document.querySelector('.sidebar .bottom .nav-item[data-name="Settings"]');
+      const sourceItems = Array.from(navContainer.querySelectorAll('.nav-item')).concat(settingsItem ? [settingsItem] : []);
+      
+    function renderBottom(){
+    // If the page has provided an explicit bottom nav using .bn-item
+    // (for consistent styling), do not overwrite it. Respect the
+    // breakpoint to hide/show as needed.
+    if (bottom.querySelector('.bn-item')) {
+      if (window.matchMedia('(min-width:481px)').matches) {
+        bottom.style.display = 'none';
+      } else {
+        bottom.style.display = 'flex';
+      }
+      return;
+    }
+
+    // Only run logic on mobile size based on CSS breakpoint
+    if(window.matchMedia('(min-width:481px)').matches) {
+      bottom.style.display = 'none';
+      return;
+    }
+
+    bottom.innerHTML = '';
+    bottom.style.display = 'flex'; // Ensured by CSS block above, but safe to repeat
+
+    sourceItems.forEach(src => {
+            // REMOVED: // skip the Messages item on phones as per CSS rule
+            // REMOVED: if (src.getAttribute('data-name') === 'Messages') return;
+
+            const btn = document.createElement('button');
+            btn.className = 'nav-item';
+            
+            // Sync active state from desktop nav (if present)
+            if (src.classList.contains('active')) {
+                btn.classList.add('active');
+            }
+            
+            // Set data-name
+            const name = src.getAttribute('data-name') || '';
+            if (name) btn.setAttribute('data-name', name);
+            
+            // Clone only the necessary content: icon and label
+            const icon = src.querySelector('.icon')?.cloneNode(true);
+            const label = src.querySelector('.label')?.cloneNode(true);
+            
+            if (icon) btn.appendChild(icon);
+            // Append label only if it exists (for mobile, we use the CSS to hide/show the label, but it should be present in the HTML)
+            if (label) btn.appendChild(label);
+
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              // Deactivate all bottom nav items
+              bottom.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+              // Activate the clicked item
+              btn.classList.add('active');
+              
+              // Find the corresponding desktop item and trigger its logic
+              const targetName = btn.getAttribute('data-name')?.toLowerCase();
+              const target = NAV_MAP[targetName];
+
+              if (target) {
+                // navigate to a dedicated page
+                window.location.href = target;
+              } else if (targetName === 'home') {
+                // in-page behavior (Home)
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              
+              // Note: For `Settings`, the URL redirection will be handled above.
+            });
+            bottom.appendChild(btn);
+        });
+      }
+      
+      // Use media query listener for robust resizing across breakpoints
+      const mediaQuery = window.matchMedia('(max-width:480px)');
+      mediaQuery.addEventListener('change', renderBottom);
+      document.addEventListener('DOMContentLoaded', renderBottom);
+      renderBottom();
+    })();
+      // Notification dropdown removed from this page.
+    </script>
+
+    <script>
+      // Highlight bottom-nav item that matches current page and add immediate press feedback
+      (function(){
+        const bottom = document.getElementById('bottomNav');
+        if (!bottom) return;
+
+        function updateActive(){
+          const items = Array.from(bottom.querySelectorAll('.bn-item, .nav-item'));
+          items.forEach(i => i.classList.remove('active'));
+          const path = (location.pathname || '').split('/').pop().toLowerCase();
+          items.forEach(i => {
+            const href = i.getAttribute('href') || '';
+            if (href) {
+              const hrefName = href.split('/').pop().toLowerCase();
+              if (hrefName === path) i.classList.add('active');
+            } else {
+              const name = (i.dataset.name || '').toLowerCase();
+              if (name && (path === '' || path.indexOf(name) !== -1 || path.startsWith(name))) i.classList.add('active');
+            }
+
+            // Immediate visual feedback when pressing
+            i.addEventListener('pointerdown', () => {
+              items.forEach(x => x.classList.remove('active'));
+              i.classList.add('active');
+            }, { passive: true });
+          });
+
+          // Fallback: mark Home active if none matched
+          if (!bottom.querySelector('.bn-item.active, .nav-item.active')){
+            const home = bottom.querySelector('.bn-item[data-name="Home"], .nav-item[data-name="Home"]');
+            if (home) home.classList.add('active');
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', updateActive);
+        window.addEventListener('popstate', updateActive);
+        // Also run immediately in case DOM already ready
+        updateActive();
+      })();
+    </script>
+
+  </body>
+</html>

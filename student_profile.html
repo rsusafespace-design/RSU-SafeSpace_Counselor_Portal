@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Individual Inventory - Romblon State University</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        input:disabled, textarea:disabled {
+            background-color: #f9fafb;
+            color: #6b7280;
+        }
+        input:not(:disabled), textarea:not(:disabled) {
+            background-color: white;
+        }
+        .photo-container {
+            transition: all 0.3s ease;
+        }
+        .photo-container:hover {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <main class="max-w-6xl mx-auto mt-8 p-6">
+        <!-- Header Section -->
+        <section class="bg-white p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">INDIVIDUAL INVENTORY</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- Data Privacy Statement -->
+            <div class="border border-gray-300 p-3 mb-6 text-sm text-gray-700 rounded">
+                <p><strong>Data Privacy Statement</strong></p>
+                <p>
+                    Romblon State University respects your right to privacy and is committed to protecting
+                    the confidentiality of your personal information. By filling out this form, you are consenting
+                    to the collection, processing, and use of the information in accordance with this privacy notice.
+                    The information you have provided is used for access provision, attendance, monitoring,
+                    evaluation, documentation, and communication purposes. The University shall only retain
+                    the said personal information until it serves its purpose, after which it shall be securely
+                    disposed of.
+                </p>
+                <div class="mt-2 flex items-center">
+                    <input type="checkbox" id="privacyAgreement" disabled class="accent-green-700 mr-2" checked>
+                    <label for="privacyAgreement" class="text-sm">I agree that my personal data shall be used as stated in the Data Privacy Notice.</label>
+                </div>
+            </div>
+
+            <!-- Student Info Fields -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="md:col-span-3 space-y-4">
+                    <!-- Student ID -->
+                    <div class="flex items-center border border-gray-400">
+                        <label class="w-28 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Student ID:</label>
+                        <input type="text" value="001-2022-000523" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                    </div>
+                    
+                    <!-- Name -->
+                    <div class="flex items-center border border-gray-400">
+                        <label class="w-28 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name:</label>
+                        <div class="flex-1 grid grid-cols-4 divide-x divide-gray-400">
+                            <input type="text" value="Falcutila" placeholder="Last Name" class="p-2 text-sm w-full border-none focus:ring-0">
+                            <input type="text" value="Marc Benedic" placeholder="First Name" class="p-2 text-sm w-full border-none focus:ring-0">
+                            <input type="text" value="M" placeholder="Middle Initial" class="p-2 text-sm w-full border-none focus:ring-0">
+                            <input type="text" placeholder="Suffix (optional)" class="p-2 text-sm w-full border-none focus:ring-0">
+                        </div>
+                    </div>
+
+                    <!-- Program and Year Level (Horizontal Layout) -->
+                    <div class="flex border border-gray-400">
+                        <!-- Program -->
+                        <div class="flex flex-1 items-center border-r border-gray-400">
+                            <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Program:</label>
+                            <input 
+                                type="text" 
+                                value="BSE" 
+                                class="flex-1 p-2 text-sm border-none focus:ring-0"
+                            >
+                        </div>
+
+                        <!-- Year Level -->
+                        <div class="flex flex-1 items-center">
+                            <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Year Level:</label>
+                            <input 
+                                type="text" 
+                                value="4th Year" 
+                                class="flex-1 p-2 text-sm border-none focus:ring-0"
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Campus and College -->
+                    <div class="flex border border-gray-400">
+                        <!-- Campus -->
+                        <div class="flex flex-1 items-center border-r border-gray-400">
+                            <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Campus:</label>
+                            <input 
+                                type="text" 
+                                value="Main Campus" 
+                                class="flex-1 p-2 text-sm border-none focus:ring-0"
+                            >
+                        </div>
+
+                        <!-- College -->
+                        <div class="flex flex-1 items-center">
+                            <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">College:</label>
+                            <input 
+                                type="text" 
+                                value="College of Education" 
+                                class="flex-1 p-2 text-sm border-none focus:ring-0"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Academic Year Admitted -->
+                    <div>
+                        <label class="block font-semibold">Academic Year Admitted</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700" checked> 1st Sem
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700"> 2nd Sem
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <span>Year</span>
+                                <input type="text" value="2022 - 2023" disabled class="bg-gray-100 p-2 rounded border w-32">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status of Enrolment -->
+                    <div>
+                        <label class="block font-semibold">Status of Enrolment</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700" checked> New
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700"> Transferee
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700"> Returnee
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Account Status -->
+                    <div class="flex items-center border border-gray-400">
+                        <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Account Status:</label>
+                        <div class="flex items-center gap-4 px-3">
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700" checked> Enabled
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700"> Disabled
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Improved 1x1 Photo Section -->
+                <div class="photo-container flex flex-col items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-xl bg-green-50 transition-all duration-300">
+                    <div class="relative w-40 h-48 mb-3 rounded-md overflow-hidden bg-white shadow-md">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            class="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                            id="photoInput"
+                            onchange="previewPhoto(event)"
+                        >
+                        <div id="photoPlaceholder" class="w-full h-full flex flex-col items-center justify-center text-gray-500">
+                            <i class="fas fa-camera text-3xl mb-2 text-green-500"></i>
+                            <span class="text-xs text-center px-2">1x1 ID Photo</span>
+                        </div>
+                        <img id="photoPreview" src="" alt="Student Photo" class="hidden w-full h-full object-cover">
+                    </div>
+                    
+                    <div class="text-center">
+                        <p class="text-xs text-gray-600 mb-2">Click to upload or change photo</p>
+                        <div class="flex justify-center space-x-2">
+                            <button onclick="document.getElementById('photoInput').click()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors">
+                                <i class="fas fa-upload mr-1"></i> Upload
+                            </button>
+                            <button onclick="removePhoto()" class="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors">
+                                <i class="fas fa-trash mr-1"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 text-center">
+                        <p class="text-xs text-gray-500">Recommended: JPG/PNG, Max 2MB</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 1: Background Information -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">I. Background Information</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- Present Address -->
+            <div class="flex items-center border border-gray-400">
+                <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Present Address:</label>
+                <input type="text" value="Odiongan, Romblon" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+            </div>
+
+            <!-- FB Messenger -->
+            <div class="flex items-center border border-t-0 border-gray-400">
+                <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">FB Messenger:</label>
+                <input type="text" value="jerrygoco.fb" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+            </div>
+
+            <!-- Permanent Address -->
+            <div class="flex items-center border border-t-0 border-gray-400">
+                <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Permanent Address:</label>
+                <input type="text" value="Odiongan, Romblon" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+            </div>
+            <div class="flex items-center gap-2 mt-2 ml-1">
+                <input type="checkbox" id="sameAddress" disabled class="accent-green-700" checked>
+                <label for="sameAddress" class="text-gray-700 text-sm">Check if same as present address</label>
+            </div>
+
+            <!-- Email -->
+            <div class="flex items-center border border-t-0 border-gray-400 mt-2">
+                <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Email Address:</label>
+                <input type="email" value="falcutilamarc23@gmail.com" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+            </div>
+
+            <!-- Birth Info -->
+            <div class="grid grid-cols-1 md:grid-cols-3 border border-t-0 border-gray-400">
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Date of Birth:</label>
+                    <input type="date" value="2004-06-15" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Contact No.:</label>
+                    <input type="text" value="09345678919" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Place of Birth:</label>
+                    <input type="text" value="Odiongan, Romblon" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- Sex, Age, Civil Status, Religion -->
+            <div class="grid grid-cols-1 md:grid-cols-4 border border-t-0 border-gray-400">
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Sex:</label>
+                    <input type="text" value="Male" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Age:</label>
+                    <input type="number" value="21" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Civil Status:</label>
+                    <div class="flex gap-3 px-2">
+                        <label class="flex items-center gap-1 text-sm"><input type="checkbox" disabled class="accent-green-700" checked> Single</label>
+                        <label class="flex items-center gap-1 text-sm"><input type="checkbox" disabled class="accent-green-700"> Married</label>
+                        <label class="flex items-center gap-1 text-sm"><input type="checkbox" disabled class="accent-green-700"> Others</label>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Religion:</label>
+                    <input type="text" value="Roman Catholic" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- If Married -->
+            <div class="grid grid-cols-1 md:grid-cols-4 border border-t-0 border-gray-400">
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-56 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name of Spouse:</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Occupation:</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-r border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">No. of Children:</label>
+                    <input type="number" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center">
+                    <label class="w-56 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Address of Spouse:</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- IP Member -->
+            <div class="flex items-center border border-t-0 border-gray-400">
+                <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Member of Indigenous People Community?</label>
+                <div class="flex items-center gap-3 px-2">
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Yes</label>
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700" checked> No</label>
+                    <input type="text" placeholder="If yes, specify group" disabled class="p-1 border rounded text-sm bg-gray-100 w-56">
+                </div>
+            </div>
+
+            <!-- Present Living Arrangement -->
+            <div class="border border-t-0 border-gray-400">
+                <label class="block bg-gray-100 border-b border-gray-400 px-2 py-2 font-semibold text-sm">Present Living Arrangement:</label>
+                <div class="flex flex-wrap gap-3 px-3 py-2">
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Own House</label>
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Apartment</label>
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Boarding House</label>
+                    <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Living with Relatives/Non-Relatives</label>
+                </div>
+
+                <div class="flex border-t border-gray-400">
+                    <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name of Landlord/Landlady:</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex border-t border-gray-400">
+                    <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Contact Number:</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Family Background -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">II. Family Background</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- FATHER INFORMATION -->
+            <h4 class="text-md font-semibold text-gray-800 mb-2">Father's Information</h4>
+            <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Father's Name</label>
+                    <input type="text" value="jh" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Age</label>
+                    <input type="number" value="50" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Occupation</label>
+                    <input type="text" value="Fisherman" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+                    <input type="text" value="09" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Father's Address</label>
+                    <input type="text" value="Odiongan, Romblon" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="p-2 flex flex-col md:flex-row gap-4">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Permanent Address</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Present Address</label>
+                </div>
+            </div>
+
+            <!-- MOTHER INFORMATION -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Mother's Information</h4>
+            <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Mother's Name</label>
+                    <input type="text" value="vjv" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Age</label>
+                    <input type="number" value="48" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Occupation</label>
+                    <input type="text" value="Vendor" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+                    <input type="text" value="09" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Mother's Address</label>
+                    <input type="text" value="Odiongan, Romblon" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="p-2 flex flex-col md:flex-row gap-4">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Permanent Address</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Present Address</label>
+                </div>
+            </div>
+
+            <!-- ADDITIONAL FAMILY INFO -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Additional Family Details</h4>
+            <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Birth Order</label>
+                    <input type="text" value="1st" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">No. of Brothers</label>
+                    <input type="number" value="1" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">No. of Sisters</label>
+                    <input type="number" value="0" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- LEGAL GUARDIAN -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Legal Guardian Information</h4>
+            <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Guardian's Name</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Relationship</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border-b border-gray-400">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+                <div class="flex items-center">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Address</label>
+                    <input type="text" value="" disabled class="flex-1 p-2 border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- MARITAL STATUS -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Marital Status of Parents</h4>
+            <div class="p-2 flex flex-wrap gap-4 text-sm">
+                <label><input type="checkbox" disabled class="accent-green-700" checked> Living Together</label>
+                <label><input type="checkbox" disabled class="accent-green-700"> Separated</label>
+                <label><input type="checkbox" disabled class="accent-green-700"> One/Both Deceased</label>
+                <label><input type="checkbox" disabled class="accent-green-700"> Solo Parent (Mother/Father)</label>
+                <label class="flex items-center gap-1"><input type="checkbox" disabled class="accent-green-700"> Others: <input type="text" disabled class="border-b border-gray-400 bg-transparent w-32 focus:outline-none"></label>
+            </div>
+
+            <!-- RELATIONSHIPS -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Current Description of Home Life</h4>
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="flex flex-wrap gap-4">
+                    <label class="font-semibold">Relationship with Mother:</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Very Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Distant</label>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    <label class="font-semibold">Relationship with Father:</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Very Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Distant</label>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    <label class="font-semibold">Relationship with Sibling/s:</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Very Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Close</label>
+                    <label><input type="checkbox" disabled class="accent-green-700"> Distant</label>
+                </div>
+            </div>
+
+            <!-- SIBLINGS ENROLLED AT RSU -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Siblings Enrolled at RSU</h4>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border text-gray-700 text-sm">
+                    <thead class="bg-green-50 text-green-700">
+                        <tr>
+                            <th class="p-2 border">Name</th>
+                            <th class="p-2 border">Program & Year Level</th>
+                            <th class="p-2 border">Contact No.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- HOUSEHOLD INFO -->
+            <div class="mt-6 flex flex-col md:flex-row gap-4">
+                <div class="flex-1 flex items-center border border-gray-400 rounded">
+                    <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Number of persons in the household:</label>
+                    <input type="number" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex-1 flex items-center border border-gray-400 rounded">
+                    <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Head of Household:</label>
+                    <input type="text" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+
+            <!-- FAMILY INCOME -->
+            <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Estimated Family Monthly Income</h4>
+            <div class="flex flex-col mt-2 space-y-1 text-sm text-gray-700">
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> Less than ₱10,957</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700" checked> ₱9,520 – ₱21,194</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱21,194 – ₱43,828</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱43,828 – ₱76,669</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱76,669 – ₱131,484</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱131,484 – ₱219,140</label>
+                <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱219,140 and up</label>
+            </div>
+        </section>
+
+        <!-- Section 3: Medical History -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">III. Medical History</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- Therapy / Counseling -->
+            <div class="flex items-center border border-gray-400">
+                <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Have you received therapy, counseling, or treatment in the past?
+                </label>
+                <div class="flex items-center gap-4 px-3">
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> Yes
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> No
+                    </label>
+                </div>
+                <input type="text" placeholder="If Yes, when and with whom?" disabled class="flex-1 p-2 text-sm border-l border-gray-400 focus:ring-0 bg-gray-100">
+            </div>
+
+            <!-- Physical Disability -->
+            <div class="flex border border-t-0 border-gray-400">
+                <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Physical Disability:
+                </label>
+                <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100">
+                <label class="w-40 bg-gray-100 border-x border-gray-400 px-2 py-2 font-semibold text-sm">
+                    PWD ID No.:
+                </label>
+                <input type="text" value="" disabled class="w-48 p-2 text-sm border-none focus:ring-0 bg-gray-100">
+            </div>
+
+            <!-- Psychosocial Disability -->
+            <div class="flex border border-t-0 border-gray-400">
+                <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Psychosocial Disability:
+                </label>
+                <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100">
+                <label class="w-40 bg-gray-100 border-x border-gray-400 px-2 py-2 font-semibold text-sm">
+                    PWD ID No.:
+                </label>
+                <input type="text" value="" disabled class="w-48 p-2 text-sm border-none focus:ring-0 bg-gray-100">
+            </div>
+
+            <!-- Current Medications -->
+            <div class="flex border border-t-0 border-gray-400">
+                <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Current Medications:
+                </label>
+                <input type="text" value="" disabled class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100">
+            </div>
+            
+            <!-- PWD Status -->
+            <div class="flex items-center border border-t-0 border-gray-400">
+                <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Person with Disability (PWD)?
+                </label>
+                <div class="flex items-center gap-4 px-3">
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> Yes
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700" checked> No
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Educational Background -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">IV. Educational Background</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full border text-gray-700 text-sm">
+                    <thead class="bg-green-50 text-green-700">
+                        <tr>
+                            <th class="p-2 border">Level</th>
+                            <th class="p-2 border">School Name</th>
+                            <th class="p-2 border">Year Graduated</th>
+                            <th class="p-2 border">Honors Received</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border p-2">Elementary</td>
+                            <td class="border p-2"><input type="text" value="Odiongan Central School" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="number" value="2015" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" value="With Honors" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                        <tr>
+                            <td class="border p-2">Junior High</td>
+                            <td class="border p-2"><input type="text" value="RSU Laboratory High School" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="number" value="2019" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" value="—" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                        <tr>
+                            <td class="border p-2">Senior High</td>
+                            <td class="border p-2"><input type="text" value="RSU Laboratory SHS" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="number" value="2021" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" value="—" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- V. Employment History -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">V. Employment History</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- Work Experience -->
+            <div class="flex items-center border border-gray-400">
+                <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Do you have a work experience?
+                </label>
+                <div class="flex items-center gap-4 px-3">
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> Yes
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> No
+                    </label>
+                </div>
+                <span class="text-gray-700 px-2 text-sm">(If yes, please fill out the table below.)</span>
+            </div>
+
+            <!-- Employment Table -->
+            <div class="overflow-x-auto border border-t-0 border-gray-400">
+                <table class="min-w-full text-gray-700 text-sm">
+                    <thead class="bg-green-50 text-green-700">
+                        <tr>
+                            <th class="p-2 border">Position Title</th>
+                            <th class="p-2 border">Agency/Company/Organization</th>
+                            <th class="p-2 border">Status of Appointment</th>
+                            <th class="p-2 border">Inclusive Dates From</th>
+                            <th class="p-2 border">Inclusive Dates To</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="date" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="date" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                        <tr>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="text" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="date" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                            <td class="border p-2"><input type="date" disabled class="bg-gray-100 p-1 rounded w-full border"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VI. Other Relevant Information -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">VI. Other Relevant Information</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+
+            <!-- Scholarship -->
+            <div class="flex items-center border border-gray-400">
+                <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Are you enjoying any scholarship grant/s?
+                </label>
+                <div class="flex items-center gap-4 px-3">
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> Yes
+                    </label>
+                    <label class="flex items-center gap-1">
+                        <input type="checkbox" disabled class="accent-green-700"> No
+                    </label>
+                </div>
+                <input type="text" placeholder="If yes, put the name of the sponsor" disabled class="flex-1 p-2 text-sm border-l border-gray-400 bg-gray-100 focus:ring-0">
+            </div>
+
+            <!-- Interests -->
+            <div class="border border-t-0 border-gray-400">
+                <div class="flex border-b border-gray-400">
+                    <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                        Performing Arts (Sports, Drama, Singing, Dancing, etc.)
+                    </label>
+                    <input type="text" disabled class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0">
+                </div>
+                <div class="flex border-b border-gray-400">
+                    <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                        Creative Arts (Painting, Drawing, Photography, etc.)
+                    </label>
+                    <input type="text" disabled class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0">
+                </div>
+                <div class="flex border-b border-gray-400">
+                    <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                        Literary Arts (Declamation, Reading, Writing, etc.)
+                    </label>
+                    <input type="text" disabled class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0">
+                </div>
+                <div class="flex">
+                    <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                        Others, specify:
+                    </label>
+                    <input type="text" disabled class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0">
+                </div>
+            </div>
+            
+            <!-- Coping Mechanisms -->
+            <div class="mt-6 border border-gray-400">
+                <label class="block bg-gray-100 border-b border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Coping Mechanisms (How do you cope with stress?)
+                </label>
+                <div class="p-3">
+                    <textarea disabled class="w-full h-20 p-2 bg-gray-100 border rounded">vmjhv</textarea>
+                </div>
+            </div>
+            
+            <!-- People Who Can Help -->
+            <div class="mt-6 border border-gray-400">
+                <label class="block bg-gray-100 border-b border-gray-400 px-2 py-2 font-semibold text-sm">
+                    People who can help you in times of need
+                </label>
+                <div class="p-3">
+                    <textarea disabled class="w-full h-20 p-2 bg-gray-100 border rounded">vj, kv</textarea>
+                </div>
+            </div>
+            
+            <!-- Sensitive Information -->
+            <div class="mt-6 border border-gray-400">
+                <label class="block bg-gray-100 border-b border-gray-400 px-2 py-2 font-semibold text-sm">
+                    Sensitive Information
+                </label>
+                <div class="p-3 space-y-3">
+                    <div class="flex items-center">
+                        <label class="w-80 font-semibold">Have you experienced sensitive situations?</label>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700"> Yes
+                            </label>
+                            <label class="flex items-center gap-1">
+                                <input type="checkbox" disabled class="accent-green-700" checked> Not applicable
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="font-semibold">Description (if applicable):</label>
+                        <textarea disabled class="w-full h-20 p-2 bg-gray-100 border rounded mt-1"></textarea>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="sensitiveOptIn" disabled class="accent-green-700 mr-2" checked>
+                        <label for="sensitiveOptIn" class="text-sm">I consent to the collection of sensitive information for support purposes</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- System Information Section -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-green-700">System Information</h3>
+                <button class="edit-btn bg-green-700 text-white px-3 py-1 rounded hover:bg-green-800">Edit</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex items-center border border-gray-400">
+                    <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Username:</label>
+                    <input type="text" value="bene" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border border-gray-400">
+                    <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Profile Completed:</label>
+                    <input type="text" value="Yes" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+                <div class="flex items-center border border-gray-400">
+                    <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Last Updated:</label>
+                    <input type="text" value="09/06/2025 9:18" disabled class="flex-1 p-2 text-sm border-none focus:ring-0">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function previewPhoto(event) {
+            const input = event.target;
+            const preview = document.getElementById('photoPreview');
+            const placeholder = document.getElementById('photoPlaceholder');
+            
+            if (input.files && input.files[0]) {
+                // Check file size (max 2MB)
+                if (input.files[0].size > 2 * 1024 * 1024) {
+                    alert('File size exceeds 2MB. Please choose a smaller file.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                }
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function removePhoto() {
+            const preview = document.getElementById('photoPreview');
+            const placeholder = document.getElementById('photoPlaceholder');
+            const input = document.getElementById('photoInput');
+            
+            preview.src = '';
+            preview.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            input.value = '';
+        }
+        
+        // Edit button functionality
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const section = this.closest('section');
+                const inputs = section.querySelectorAll('input, textarea, select');
+                const isDisabled = inputs[0].disabled;
+                
+                inputs.forEach(input => {
+                    input.disabled = !isDisabled;
+                });
+                
+                this.textContent = isDisabled ? 'Save' : 'Edit';
+                this.classList.toggle('bg-green-700', isDisabled);
+                this.classList.toggle('bg-blue-700', !isDisabled);
+                this.classList.toggle('hover:bg-green-800', isDisabled);
+                this.classList.toggle('hover:bg-blue-800', !isDisabled);
+            });
+        });
+    </script>
+</body>
+</html>

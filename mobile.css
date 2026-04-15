@@ -1,0 +1,659 @@
+/* Mobile-specific responsive stylesheet for counselor_setting.html
+   Loaded with media="(max-width:480px)" from the page head.
+   Keeps rules compact and avoids duplicating desktop styles.
+*/
+
+/* By default hide the bottom-nav on desktop; visible only inside the mobile media query below */
+.bottom-nav { display: none !important; }
+
+/* Defensive fixes: ensure the app uses full device width on small screens */
+@media (max-width:480px) {
+  html, body, .app, .main { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .container, .page, .panel, .content { max-width: 100% !important; margin: 0 auto !important; }
+}
+
+@media (max-width:480px) {
+  /* Hide desktop sidebar and make topbar compact */
+  .sidebar { display:none !important; }
+  .main{ margin-left:0; }
+  .topbar {
+    padding:10px 14px;
+    height:56px;
+    position:fixed !important;
+    left:0; right:0; top:0;
+    z-index:80;
+  }
+  .brand .title{ font-size:18px; }
+  .brand .sub{ display:none; }
+  .topbar .top-right { gap: 8px; }
+  .topbar #datetime, .topbar #greeting { display: none !important; }
+
+  /* Content area: leave space for fixed topbar and bottom nav */
+  .content {
+    padding:12px;
+    padding-top: calc(56px + 12px);
+    padding-bottom: 86px; /* room for bottom nav */
+  }
+
+  /* Greeting card adjustments */
+  #greeting, #datetime { display: none !important; }
+  .greeting-card { 
+    display: flex !important; 
+    grid-column: auto; 
+    flex-direction:column; 
+    align-items:flex-start; 
+    gap:8px; 
+    margin-bottom: 16px !important;
+    padding: 16px !important;
+  }
+
+  /* Settings-specific mobile fixes */
+  .settings-columns {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: stretch !important;
+  }
+
+  #calendarColumn {
+    flex: none !important;
+    width: 100% !important;
+    order: 1;
+  }
+
+  .right-column {
+    width: 100% !important;
+    order: 2;
+    align-items: stretch !important;
+  }
+
+  /* Grid adjustments for settings page */
+  .grid { 
+    grid-template-columns: 1fr !important; 
+    gap: 16px !important; 
+    grid-auto-rows: auto !important;
+  }
+
+  .card { 
+    grid-column: auto !important; 
+    width: 100% !important; 
+    padding: 16px !important; 
+    border-radius: 12px !important; 
+    margin-bottom: 0 !important;
+  }
+
+  /* SHOW CALENDAR ON MOBILE - override any hiding rules */
+  #calendarColumn, #calendar, .calendar, .fc, .fc-root, .fc-view-harness {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 400px !important;
+    overflow: visible !important;
+  }
+
+  /* Calendar card specific styling */
+  #calendar {
+    background: #fff !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06) !important;
+    margin: 0 !important;
+    min-height: 400px !important;
+  }
+
+  /* FullCalendar mobile optimizations */
+  .fc .fc-toolbar {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    font-size: 16px !important;
+    text-align: center !important;
+  }
+  
+  .fc .fc-toolbar-chunk {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+  
+  .fc .fc-button {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  
+  .fc .fc-daygrid-day-number {
+    font-size: 12px !important;
+    padding: 4px !important;
+  }
+  
+  .fc .fc-daygrid-event {
+    font-size: 10px !important;
+    padding: 3px 5px !important;
+    margin: 1px !important;
+  }
+
+  /* Date Exceptions card */
+  #dateExceptionsList {
+    max-height: 200px !important;
+    overflow-y: auto !important;
+  }
+
+  /* Account card adjustments */
+  #accountCard {
+    width: 100% !important;
+    margin-top: 16px !important;
+  }
+
+  /* Hide Messages nav item on phone in sidebar */
+  .nav .nav-item[data-name="Messages"] { 
+    display: none !important; 
+  }
+
+  /* Modal adjustments for mobile */
+  #timeSlotModal > div,
+  #weeklyAvailabilityModal > div,
+  #exceptionModal > div {
+    width: 92% !important;
+    max-width: 100% !important;
+    margin: 12px !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Weekly availability table becomes scrollable */
+  #weeklyAvailabilityTable {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  #weeklyAvailabilityTable thead,
+  #weeklyAvailabilityTable tbody {
+    display: table !important;
+    width: 100% !important;
+  }
+
+  /* Profile dropdown positioning */
+  .profile-dropdown {
+    position: fixed !important;
+    top: 56px !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: none !important;
+    z-index: 1000 !important;
+  }
+
+  /* Ensure topbar stays on top and is not moved by other elements */
+  .topbar { z-index: 100005 !important; }
+
+  /* Prevent double-tap to zoom on interactive topbar elements */
+  .topbar, .topbar * { touch-action: manipulation; }
+
+  /* Two-cards layout stacks vertically */
+  .two-cards {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Bottom navigation (mobile) - match topbar color for a cohesive look */
+  .bottom-nav{
+    display:flex !important;
+    position:fixed;
+    left:0; right:0; bottom:0;
+    height:72px;
+    background: var(--green);
+    box-shadow:0 -8px 24px rgba(2,6,23,0.08);
+    z-index:100004 !important;
+    gap:0;
+    justify-content:space-around;
+    align-items:center;
+    padding:6px 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  
+  .bottom-nav .nav-item{ 
+    flex:1; 
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:6px;
+    border-radius:8px;
+    background:transparent;
+    border:0;
+    color:#fff;
+    font-weight:600; 
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .bottom-nav .nav-item .icon{ 
+    font-size:24px; 
+    line-height:1; 
+    color:inherit; 
+  }
+  
+  .bottom-nav .nav-item .label{ 
+    font-size:11px; 
+    color:inherit; 
+    font-weight: 600; 
+  }
+  
+  .bottom-nav .nav-item.active{ 
+    color: #064e3b; 
+    background: rgba(255,255,255,0.95); 
+    border-radius:8px; 
+    padding:6px 8px; 
+  }
+
+  /* Prevent zoom & accidental double-tap on bottom nav elements */
+  .bottom-nav, .bottom-nav * { touch-action: manipulation; }
+
+  /* Hide desktop footer on mobile to avoid visual overlap with bottom-nav */
+  .site-footer { display: none !important; }
+
+  /* Success message adjustments */
+  .success-message {
+    margin: 12px 0 !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Set Availability button */
+  #setAvailabilityBtn {
+    width: 100% !important;
+    margin-top: 12px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Notification dropdown mobile adjustments */
+  #notificationDropdown {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 56px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100vh - 72px) !important;
+    overflow: auto !important;
+    z-index: 99999 !important;
+    box-shadow: 0 18px 40px rgba(2,6,23,0.16) !important;
+    border-radius: 12px !important;
+  }
+}
+
+/* Override for very small screens */
+@media (max-width: 360px) {
+  .fc .fc-toolbar-title {
+    font-size: 14px !important;
+  }
+  
+  .fc .fc-button {
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+  }
+  
+  .bottom-nav .nav-item .label {
+    font-size: 10px !important;
+  }
+  
+  .bottom-nav .nav-item .icon {
+    font-size: 20px !important;
+  }
+  
+  #calendar {
+    min-height: 380px !important;
+    padding: 8px !important;
+  }
+}
+/* Mobile-specific responsive stylesheet for counselor_home.html
+   Loaded with media="(max-width:480px)" from the page head.
+   Keeps rules compact and avoids duplicating desktop styles.
+*/
+
+/* Defensive fixes: ensure the app uses full device width on small screens */
+@media (max-width:480px) {
+  html, body, .app, .main { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .container, .page, .panel, .content { max-width: 100% !important; margin: 0 auto !important; }
+}
+
+@media (max-width:480px) {
+  /* Hide desktop sidebar and make topbar compact */
+  .sidebar { display:none !important; }
+  .main{ margin-left:0; }
+  .topbar {
+    padding:10px 14px;
+    height:56px;
+    position:fixed;
+    left:0; right:0; top:0;
+    z-index:80;
+  }
+  .brand .title{ font-size:18px; }
+  .brand .sub{ display:none; }
+  .topbar .top-right { gap: 8px; }
+  .topbar #datetime, .topbar #greeting { display: none !important; }
+
+  /* Content area: leave space for fixed topbar and bottom nav */
+  .content {
+    padding:12px;
+    padding-top: calc(56px + 12px);
+    padding-bottom: 86px; /* room for bottom nav */
+  }
+
+  /* Greeting card adjustments */
+  #greeting, #datetime { display: none !important; }
+  #dateRight { display: none !important; }
+  .greeting-card { display: flex !important; grid-column: auto; flex-direction:column; align-items:flex-start; gap:8px; }
+
+  /* Grid becomes single column */
+  .grid { grid-template-columns: 1fr; gap:12px; grid-auto-rows: auto; }
+  .card { grid-column: auto; width: 100%; padding:12px; border-radius:10px; }
+
+  /* Show Reminders and Appointments on phone; hide calendar/events/recent-activity */
+  .calendar, .events, .recent-activity { display: none !important; }
+  .reminders, .appointments { display: block !important; grid-column: auto; }
+
+  /* Appointments: compact horizontal row (time | info | badge) on phones */
+  .appointments .appointment {
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center !important;
+    position: relative !important;
+    padding:10px 12px !important;
+    border-radius:10px !important;
+    margin-bottom:12px !important;
+    gap:12px !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,0.03) !important;
+    overflow:visible !important;
+  }
+  /* show a thin accent stripe on the left to match desktop visual */
+  .appointments .appointment::before{
+    content:"";
+    position:absolute;
+    left:0; top:8px; bottom:8px;
+    width:6px;
+    background:linear-gradient(180deg,#f59e0b,#fbbf24) !important;
+    border-top-left-radius:8px;
+    border-bottom-left-radius:8px;
+  }
+
+  /* The dynamically generated left wrapper should keep its horizontal layout but not expand vertically */
+  .appointments .appointment > div:first-child {
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center !important;
+    gap:12px !important;
+    width: auto !important;
+    padding-left:12px !important; /* space after the accent stripe */
+    box-sizing: border-box;
+  }
+
+  /* Time column: fixed narrow column on the left */
+  .appointments .appt-time {
+    width:72px !important;
+    min-width:72px !important;
+    font-size:13px !important;
+    color:var(--muted) !important;
+    text-align:left !important;
+    padding-left:0 !important;
+  }
+
+  /* Info column: flexible center area */
+  .appointments .appt-info {
+    flex:1 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    gap:2px !important;
+    justify-content:center !important;
+    align-items:flex-start !important;
+    padding-right:8px !important;
+  }
+  .appointments .appt-info .appt-name { font-weight:700 !important; font-size:15px !important; color:#111 !important; }
+  .appointments .appt-info .appt-topic { color:var(--muted) !important; font-size:13px !important; }
+
+  /* Status badge: keep on the right and vertically centered */
+  .appointments .status-badge{
+    margin-left:auto !important;
+    align-self:center !important;
+    padding:6px 10px !important;
+    font-size:13px !important;
+    border-radius:999px !important;
+    background: transparent !important;
+    color: #a855f7 !important; /* purple like screenshot */
+  }
+  
+  /* Tuning: make appointment cards more compact and visually balanced on phones */
+  .appointments .appointment {
+    padding:10px !important;
+    gap:6px !important;
+    border-radius:10px !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,0.03) !important;
+    min-height: auto !important;
+  }
+
+  .appointments .appointment > div:first-child { padding: 0 !important; }
+
+  .appointments .appt-info { font-size: 14px !important; color: #111 !important; }
+  .appointments .appt-info .appt-name { font-weight:700 !important; font-size:15px !important; margin-bottom:4px !important; }
+  .appointments .appt-info .appt-topic { color:var(--muted) !important; font-size:13px !important; }
+
+  .appointments .appt-time { font-size:13px !important; color:var(--muted) !important; margin-top:4px !important; }
+
+  /* Make status badge subtle and small on phones */
+  .appointments .status-badge {
+    background: transparent !important;
+    color: inherit !important;
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    border-radius: 8px !important;
+    margin-top: 8px !important;
+    box-shadow: none !important;
+  }
+
+  /* View All button: full width and smaller on mobile */
+  .appointments .view-btn { margin-top:8px !important; }
+  .appointments .view-btn .btn {
+    width: 100% !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    background: #2563eb !important;
+    color: #fff !important;
+  }
+
+  /* Reminders: make task rows touch friendly and full width */
+  .reminders .body { padding:8px 0; }
+  .reminders .body > div:first-of-type > div:last-of-type {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .reminders .body > div:first-of-type > div:last-of-type input[type="text"],
+  .reminders .body > div:first-of-type > div:last-of-type input[type="date"],
+  .reminders .body > div:first-of-type > div:last-of-type button {
+    width: 100% !important;
+  }
+  .reminders .body .add-task {
+    display:flex !important;
+    flex-direction:column !important;
+    gap:10px !important;
+    align-items:stretch !important;
+    width:100% !important;
+  }
+  .reminders .task, .reminders li {
+    padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:8px; align-items:stretch;
+  }
+  .reminders .task .due { text-align:left; }
+
+  /* Modal: use full screen on small devices */
+  #modal > div {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    padding: 12px;
+    overflow:auto;
+  }
+
+  /* Bottom navigation (mobile) - match topbar color for a cohesive look */
+  .bottom-nav{
+    display:flex !important;
+    position:fixed;
+    left:0; right:0; bottom:0;
+    height:72px;
+    background: var(--green);
+    box-shadow:0 -8px 24px rgba(2,6,23,0.08);
+    z-index:90;
+    gap:0;
+    justify-content:space-around;
+    align-items:center;
+    padding:6px 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  .bottom-nav .nav-item{ 
+    flex:1; display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;border-radius:8px;background:transparent;border:0;color:#fff;font-weight:600; 
+    min-width: 44px; /* touch target */
+    min-height: 44px; /* touch target */
+  }
+  /* Avatar size on mobile (48px) and small badge adjustments */
+  .avatar, #userAvatar { width:48px !important; height:48px !important; }
+  .avatar img, #userAvatarImg { width:100% !important; height:100% !important; }
+  .avatar .avatar-badge { width:16px !important; height:16px !important; bottom:-3px !important; right:-3px !important; }
+  .avatar .avatar-badge span { font-size:10px !important; }
+  .bottom-nav .nav-item .icon{ font-size:24px; line-height:1; color:inherit; }
+  .bottom-nav .nav-item .label{ font-size:11px; color:inherit; font-weight: 600; }
+  .bottom-nav .nav-item.active{ color: #064e3b; background: rgba(255,255,255,0.95); border-radius:8px; padding:6px 8px; }
+
+  /* Compact layout tweaks */
+  :root { --content-padding: 12px; --topbar-height: 56px; --gap: 10px; }
+  .content { padding: var(--content-padding) !important; padding-top: calc(var(--topbar-height) + 8px) !important; }
+  .topbar { padding: 10px 14px !important; height: var(--topbar-height) !important; }
+  .brand .title { font-size: 18px !important; }
+  .card { padding: 8px !important; border-radius: 8px; }
+  .grid { gap: var(--gap) !important; }
+  .card .body, .reminders .body, .recent-activity .body { padding: 8px !important; }
+  .reminders .card-scroll, .recent-activity .card-scroll { max-height: 38vh !important; }
+
+  /* Slightly reduce typography for very small screens */
+  html { font-size: 14px !important; }
+
+  /* Notification dropdown sizing */
+  .notification-dropdown { width: 320px; right: 8px; left: 8px; max-width: none; }
+  .notification-item { padding: 10px 12px; }
+  .notification-actions { flex-direction: column; }
+}
+
+    /* bottom-nav defaults: hidden on desktop, styled for phones below */
+    .bottom-nav { display: none; }
+    .bottom-nav .bn-item { border: 0; background: transparent; }
+
+    @media (max-width:480px) {
+      .appointments { display: block !important; grid-column: auto !important; }
+      /* Ensure calendar is visible on mobile pages that need it */
+      .calendar { display: block !important; }
+
+      /* Mobile bottom navigation bar */
+      .bottom-nav {
+        display: flex !important;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 64px;
+        background: var(--green);
+        color: #fff;
+        z-index: 200;
+        gap: 0;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        box-shadow: 0 -6px 20px rgba(2,6,23,0.12);
+        align-items: center;
+        justify-content: space-around;
+      }
+
+      .bottom-nav .bn-item {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: inherit;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 6px 0;
+        gap: 2px;
+      }
+
+      .bottom-nav .bn-item .material-icons {
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .bottom-nav .bn-item:active,
+      .bottom-nav .bn-item:focus {
+        outline: none;
+        background: rgba(255,255,255,0.06);
+      }
+
+      /* Active/selected state for bn-item (highlight when current page or clicked) */
+      .bottom-nav .bn-item.active {
+        color: #064e3b;
+        background: rgba(255,255,255,0.95);
+        border-radius: 4px;
+        padding: 5px 6px;
+      }
+
+      /* Slightly hide labels on very small screens to save space */
+      @media (max-width:360px) {
+        .bottom-nav .bn-item .label { font-size: 11px; }
+      }
+    }
+
+/* Student card mobile-only simplification */
+@media (max-width:480px) {
+  .student-card { padding: 12px !important; margin-bottom: 10px !important; }
+  .student-left { width: 100% !important; flex-direction: row !important; gap: 12px !important; align-items: center !important; }
+  .student-info { flex: 1 !important; min-width: 0 !important; }
+  .student-name { font-size: 16px !important; margin: 0 0 4px 0 !important; line-height: 1.2 !important; }
+  .student-meta { font-size: 13px !important; color: #6b7280 !important; line-height: 1.2 !important; }
+
+  .session-wrap, .student-right, .student-sub, .badge, .student-card .student-meta div:last-child { display: none !important; }
+
+  .view-profile-btn { padding: 8px 12px !important; border-radius: 10px !important; border: 0 !important; cursor: pointer !important; font-weight: 700 !important; font-size: 13px !important; min-width: 70px !important; }
+}
+
+/* TEMPORARY STRONG OVERRIDES: ensure calendar and FullCalendar elements render on narrow screens */
+@media (max-width: 720px) {
+  #calendarColumn, #calendar, .calendar, .fc, .fc-root, .fc-view-harness, .fc-view-harness-active {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 2 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 420px !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Inner FullCalendar scroller/daygrid/list containers: ensure they are not collapsed */
+  #calendar .fc-daygrid, #calendar .fc-list, #calendar .fc-scroller, #calendar .fc-view {
+    display: block !important;
+    min-height: 360px !important;
+    max-height: none !important;
+    overflow: auto !important;
+  }
+
+  /* If any inline style attempted to hide the container, override it */
+  #calendar[style*="display: none"], #calendarColumn[style*="display: none"] {
+    display: block !important;
+  }
+}

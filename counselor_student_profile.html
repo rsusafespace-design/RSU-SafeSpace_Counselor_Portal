@@ -1,0 +1,1511 @@
+<!doctype html>
+<html lang="en">
+<head>
+   <script type="module">
+    import { watchAuth, showUserInfo } from "./main.js";
+
+    watchAuth(user => {
+      if (!user || user.isAnonymous || !user.email) {
+        window.location.replace("counselor_login.html");
+      } else {
+        showUserInfo(user);
+      }
+    });
+    
+      // Date/time updater for header and card
+      function updateTime(){
+        const now=new Date();
+        const optionsDate = { weekday:'long', month:'short', day:'numeric', year:'numeric' };
+        const dateStr = now.toLocaleDateString(undefined, optionsDate);
+        const timeStr = now.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+        const datetime = document.getElementById('datetime');
+        const dateRight = document.getElementById('dateRight');
+        if(datetime) datetime.textContent = dateStr + ' — ' + timeStr;
+        if(dateRight) dateRight.textContent = dateStr + ' • ' + timeStr;
+      }
+      setInterval(updateTime,1000*30);
+      updateTime();
+  </script>
+  <script>
+    // Profile dropdown, confirm modal, and logout wiring
+    // Run after DOM is fully parsed so elements exist
+    window.addEventListener('DOMContentLoaded', function(){
+    (function(){
+      const topRight = document.querySelector('.top-right');
+      const profileBtn = document.getElementById('profileBtn');
+      // Build dropdown if missing
+      if (topRight && profileBtn && !document.getElementById('profileDropdown')){
+        const wrap = document.createElement('div');
+        wrap.style.position = 'relative';
+        wrap.style.display = 'inline-block';
+        // move the profileBtn into the wrapper to anchor the menu
+        if (profileBtn.parentElement === topRight){
+          topRight.removeChild(profileBtn);
+          wrap.appendChild(profileBtn);
+        }
+        const menu = document.createElement('div');
+        menu.id = 'profileDropdown';
+        menu.setAttribute('aria-hidden','true');
+        menu.style.cssText = 'display:none;position:absolute;right:0;top:56px;background:#fff;border-radius:12px;box-shadow:0 14px 36px rgba(2,6,23,0.16);padding:8px 0;min-width:180px;z-index:1200;border:1px solid rgba(2,6,23,0.06)';
+        menu.innerHTML = `
+              <div class="pd-head">
+                <div class="pd-avatar">
+                  <img id="profileDropdownAvatar" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+                  <span id="profileDropdownAvatarText" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-weight:800;color:var(--green)"></span>
+                </div>
+                <div class="pd-meta">
+                  <div id="profileDropdownName" class="pd-name">Hi, RSU SAFESPACE</div>
+                  <div id="profileDropdownEmail" class="pd-email">rsusafespace@gmail.com</div>
+                </div>
+              </div>
+
+              <div style="padding:8px 6px;display:flex;flex-direction:column;gap:6px">
+                <button id="viewAccountLink" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">person</i>
+                    <span style="flex:1;text-align:left">Manage your profile</span>
+                </button>
+                <button id="settingsBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">settings</i>
+                    <span style="flex:1;text-align:left">Settings &amp; privacy</span>
+                    <i class="material-icons icon" style="font-size:16px;opacity:0.7;">chevron_right</i>
+                </button>
+                <button id="dropdownLogoutBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;color:#111;font-weight:600">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;color:#ef4444">logout</i>
+                    <span style="flex:1;text-align:left">Log Out</span>
+                </button>
+              </div>
+        `;
+        wrap.appendChild(menu);
+        topRight.appendChild(wrap);
+      }
+
+      const dropdown = document.getElementById('profileDropdown');
+      const viewAccountLink = document.getElementById('viewAccountLink');
+      const dropdownLogoutBtn = document.getElementById('dropdownLogoutBtn');
+
+      function toggleDropdown(show){
+        if (!dropdown) return;
+        const willShow = typeof show === 'boolean' ? show : dropdown.style.display === 'none';
+        dropdown.style.display = willShow ? 'block' : 'none';
+        dropdown.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+      }
+
+      if (profileBtn && dropdown){
+        profileBtn.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          toggleDropdown(dropdown.style.display === 'none');
+        });
+        document.addEventListener('click', (e) => {
+          if (!dropdown.contains(e.target) && e.target !== profileBtn) toggleDropdown(false);
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleDropdown(false); });
+      }
+
+      const toast = (msg) => {
+        try {
+          const div = document.createElement('div');
+          div.textContent = msg;
+          div.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:8px;z-index:4000;opacity:.96;font-size:13px';
+          document.body.appendChild(div);
+          setTimeout(()=> div.remove(), 2000);
+        } catch(_) { alert(msg); }
+      };
+
+      function showConfirm(arg1, arg2){
+        let title='Confirm', message='Are you sure?', confirmText='Confirm', cancelText='Cancel', variant='primary';
+        let okBg, okHover, okColor;
+        if (typeof arg1 === 'string'){
+          message = arg1;
+          if (arg2 && typeof arg2 === 'object'){
+            confirmText = arg2.okText || confirmText;
+            cancelText = arg2.cancelText || cancelText;
+            okBg = arg2.okBg; okHover = arg2.okHover; okColor = arg2.okColor;
+            if (!okBg && !okHover && !okColor) variant = arg2.variant || variant;
+            if (!okBg && variant === 'danger') { okBg = '#dc2626'; okHover = '#b91c1c'; okColor = '#fff'; }
+          }
+        } else if (typeof arg1 === 'object'){
+          const o = arg1 || {};
+          title = o.title || title;
+          message = o.message || message;
+          confirmText = o.confirmText || confirmText;
+          cancelText = o.cancelText || cancelText;
+          variant = o.variant || variant;
+        }
+
+        // Prefer DOM modal
+        const modal = document.getElementById('confirmModal');
+        const msgEl = document.getElementById('confirmModalMessage');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+        if (modal && msgEl && okBtn && cancelBtn){
+          msgEl.textContent = message || '';
+          if (titleEl) titleEl.textContent = title || 'Confirm';
+          okBtn.textContent = confirmText || 'Yes';
+          cancelBtn.textContent = cancelText || 'No';
+
+          const baseBg = okBg || (variant==='danger' ? '#dc2626' : '#0f6a56');
+          const hoverBg = okHover || (variant==='danger' ? '#b91c1c' : '#0c5a49');
+          const textColor = okColor || '#ffffff';
+          const radius = '12px';
+          okBtn.style.background = baseBg;
+          okBtn.style.color = textColor;
+          okBtn.style.border = '0';
+          okBtn.style.padding = '10px 16px';
+          okBtn.style.borderRadius = radius;
+          okBtn.style.cursor = 'pointer';
+          okBtn.style.fontWeight = '700';
+          okBtn.style.minWidth = '96px';
+          okBtn.style.boxShadow = '0 6px 18px rgba(0,0,0,0.10)';
+          okBtn.onmouseenter = () => okBtn.style.background = hoverBg;
+          okBtn.onmouseleave = () => okBtn.style.background = baseBg;
+          okBtn.onfocus = () => okBtn.style.outline = '3px solid rgba(15,106,86,0.25)';
+          okBtn.onblur = () => okBtn.style.outline = '';
+
+          cancelBtn.style.background = '#f3f4f6';
+          cancelBtn.style.color = '#111827';
+          cancelBtn.style.border = '1px solid #e5e7eb';
+          cancelBtn.style.padding = '10px 16px';
+          cancelBtn.style.borderRadius = radius;
+          cancelBtn.style.cursor = 'pointer';
+          cancelBtn.style.fontWeight = '700';
+          cancelBtn.style.minWidth = '96px';
+          cancelBtn.onmouseenter = () => cancelBtn.style.background = '#e5e7eb';
+          cancelBtn.onmouseleave = () => cancelBtn.style.background = '#f3f4f6';
+
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+          return new Promise(resolve => {
+            function cleanup(){
+              modal.style.display = 'none';
+              document.body.style.overflow = 'auto';
+              okBtn.removeEventListener('click', onOk);
+              cancelBtn.removeEventListener('click', onCancel);
+              document.removeEventListener('keydown', onKey);
+            }
+            function onOk(){ cleanup(); resolve(true); }
+            function onCancel(){ cleanup(); resolve(false); }
+            function onKey(e){ if(e.key==='Escape') onCancel(); if(e.key==='Enter') onOk(); }
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            document.addEventListener('keydown', onKey);
+          });
+        }
+
+        // Fallback overlay
+        return new Promise(resolve => {
+          const overlay = document.createElement('div');
+          overlay.style.position='fixed'; overlay.style.inset='0'; overlay.style.background='rgba(0,0,0,0.45)';
+          overlay.style.display='flex'; overlay.style.alignItems='center'; overlay.style.justifyContent='center';
+          overlay.style.zIndex='2000';
+
+          const panel = document.createElement('div');
+          panel.style.background='#fff'; panel.style.borderRadius='12px'; panel.style.boxShadow='0 12px 40px rgba(2,6,23,0.2)';
+          panel.style.padding='18px'; panel.style.maxWidth='420px'; panel.style.width='92%';
+
+          const h = document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.style.fontSize='16px'; h.textContent=title;
+          const p = document.createElement('div'); p.style.color='#374151'; p.style.fontSize='14px'; p.style.marginBottom='14px'; p.textContent=message;
+          const actions = document.createElement('div'); actions.style.display='flex'; actions.style.justifyContent='flex-end'; actions.style.gap='8px';
+
+          const cancel = document.createElement('button');
+          cancel.textContent = cancelText; cancel.style.padding='10px 16px'; cancel.style.border='1px solid #e5e7eb'; cancel.style.borderRadius='12px';
+          cancel.style.background='#f3f4f6'; cancel.style.cursor='pointer'; cancel.style.fontWeight='700'; cancel.style.color='#111827';
+          cancel.addEventListener('mouseenter', ()=> { cancel.style.background = '#e5e7eb'; });
+          cancel.addEventListener('mouseleave', ()=> { cancel.style.background = '#f3f4f6'; });
+
+          const confirm = document.createElement('button');
+          confirm.textContent = confirmText; confirm.style.padding='10px 16px'; confirm.style.border='0'; confirm.style.borderRadius='12px'; confirm.style.cursor='pointer'; confirm.style.fontWeight='700';
+          let baseBg = okBg || (variant==='danger' ? '#dc2626' : '#0f6a56');
+          let hoverBg = okHover || (variant==='danger' ? '#b91c1c' : '#0c5a49');
+          let textColor = okColor || '#fff';
+          confirm.style.background = baseBg; confirm.style.color = textColor; confirm.style.boxShadow = '0 6px 18px rgba(0,0,0,0.10)';
+          confirm.addEventListener('mouseover', ()=> { confirm.style.background = hoverBg; });
+          confirm.addEventListener('mouseout', ()=> { confirm.style.background = baseBg; });
+
+          function cleanup(result){ document.removeEventListener('keydown', onKey); overlay.remove(); resolve(result); }
+          function onKey(e){ if(e.key==='Escape') cleanup(false); if(e.key==='Enter') cleanup(true); }
+
+          cancel.addEventListener('click', ()=> cleanup(false));
+          confirm.addEventListener('click', ()=> cleanup(true));
+          overlay.addEventListener('click', (e)=>{ if(e.target===overlay) cleanup(false); });
+
+          actions.appendChild(cancel); actions.appendChild(confirm);
+          panel.appendChild(h); panel.appendChild(p); panel.appendChild(actions);
+          overlay.appendChild(panel);
+          document.body.appendChild(overlay);
+          document.addEventListener('keydown', onKey);
+          setTimeout(()=> confirm.focus(), 0);
+        });
+      }
+      window.showConfirm = window.showConfirm || showConfirm;
+
+      if (viewAccountLink){
+        viewAccountLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggleDropdown(false);
+          toast('Profile editor coming soon.');
+        });
+      }
+
+      async function doLogoutFlow(disableEl){
+        try {
+          const ok = await showConfirm('Are you sure you want to log out?', {
+            okText: 'Yes',
+            cancelText: 'No',
+            okBg: '#0f6a56',
+            okHover: '#0c5a49',
+            okColor: '#ffffff'
+          });
+          if (!ok) return;
+          if (disableEl) { disableEl.disabled = true; disableEl.style.opacity = '.6'; }
+          if (typeof window.logout === 'function') { await window.logout(); }
+          try { ['weeklyAvailability_byWeekday','dateExceptions','holidayDates'].forEach(k=>localStorage.removeItem(k)); } catch(_){ }
+          window.location.href = 'counselor_login.html';
+        } catch (err) {
+          console.error('Logout failed', err);
+          toast('Failed to log out. Please try again.');
+        } finally {
+          if (disableEl) { disableEl.disabled = false; disableEl.style.opacity = ''; }
+        }
+      }
+
+      if (dropdownLogoutBtn){
+        dropdownLogoutBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          toggleDropdown(false);
+          await doLogoutFlow(dropdownLogoutBtn);
+        });
+      }
+    })();
+    });
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SafeSpace — Counselor Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Basic CSS only, no frameworks */
+    :root{
+      --green:#0f7a34;
+      --panel:#ffffff;
+      --muted:#6b7280;
+      --bg:#f4f6fb;
+      --card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+      --radius:10px;
+    }
+  *{box-sizing:border-box}
+  body{margin:0;font-family: 'Inter', Arial, Helvetica, sans-serif;background:var(--bg);color:#0f172a; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale}
+    .app{display:flex;min-height:100vh}
+
+    /* Sidebar */
+    .sidebar{
+      width:250px;
+      background:#f0f3f6;
+      border-right:1px solid rgba(0,0,0,0.06);
+      display:flex;flex-direction:column;
+      position:sticky;
+      top:0;
+      height:100vh;
+      overflow:auto;
+      z-index:40;
+    }
+    .sidebar .top { display:flex;align-items:center;justify-content:space-between;padding:13px 20px;background:var(--green);color:#fff; }
+    .logo{font-weight:800;font-size:20px}
+    .burger{background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer;padding:6px}
+
+    .nav{padding:12px;display:flex;flex-direction:column;gap:8px}
+    .nav button{ display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;text-align:left;color:#1f2937;font-weight:400; }
+    .nav .label { font-size: 15px; }
+    .nav button, .nav .nav-item { transition: background .12s ease, color .12s ease; }
+    .nav button:hover, .nav .nav-item:hover { background: rgba(15,122,52,0.06); color: var(--green); }
+    .nav button.active{background:rgba(15,122,52,0.08);color:var(--green)}
+    .nav .icon{width:28px;text-align:center}
+
+    /* larger sidebar icons */
+    .nav .icon{ width:56px; display:inline-flex; align-items:center; justify-content:center; font-size:26px; line-height:1; }
+    .nav button{ padding:12px 10px; gap:14px; }
+    body.collapsed .nav .icon{ width:56px; font-size:26px; justify-content:center; }
+    body.collapsed .nav button{ justify-content:center; padding:12px 6px; }
+    body.collapsed .nav button .label{display:none}
+    body.collapsed .sidebar .bottom .logged{display:none}
+    body.collapsed .sidebar .top .logo{display:none}
+    @media (max-width:720px){ .nav .icon{ width:56px; font-size:22px; } .icon-btn{ font-size:24px; } .avatar{ width:48px; height:48px; font-size:16px; } }
+    .sidebar .bottom{margin-top:auto;padding:12px;border-top:1px solid rgba(0,0,0,0.04)}
+    .logged{font-size:13px;color:#374151}
+
+    /* Main area */
+    .main{flex:1;display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:35px 22px;background:var(--green);color:#fff;position:sticky;top:0;z-index:50;backdrop-filter: blur(4px);-webkit-backdrop-filter: blur(4px);}    
+    .brand{display:flex;flex-direction:column}
+    .brand .title{font-size:28px;font-weight:800;line-height:1}
+    .brand .sub{font-size:13px;opacity:0.95}
+    .top-right{display:flex;align-items:center;gap:12px}
+    .icon-btn{background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer}
+    .avatar{width:40px;height:40px;border-radius:50%;background:#fff;color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800}
+
+    /* Content grid */
+    .content{padding:20px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .grid { grid-auto-rows: minmax(140px, 1fr); align-items: start; }
+
+    /* Card layout */
+    .card { display:flex; flex-direction:column; height:100%; }
+    .card .body { flex:1 1 auto; }
+    .card .view-btn, .card .btn-row { margin-top:12px; align-self:stretch; }
+    .card{ background:var(--panel);border-radius:var(--radius);box-shadow:var(--card-shadow); padding:14px;grid-column:span 6; }
+    .card h3{margin:0 0 8px 0;font-size:16px}
+    .card .body{font-size:14px;color:#111}
+
+    /* Events view button styles (appointments removed) */
+    .events.card { display:flex; flex-direction:column; }
+    .events .body { flex: 1 1 auto; }
+    .events .view-btn { margin-top:12px; align-self:stretch; }
+    .events .view-btn .btn { display:block; width:100%; padding:12px 18px; border-radius:12px; background:#2563eb; color:#fff; font-weight:700; border:0; cursor:pointer; text-align:center; }
+    .events .view-btn .btn:hover { filter:brightness(.95); }
+
+  /* Calendar removed per request */
+
+    .reminders{grid-column:span 6}
+    .add-task{display:flex;gap:8px;margin-bottom:10px}
+    .add-task input{flex:1;padding:8px;border-radius:8px;border:1px solid #e6eef7}
+    .add-task button{padding:8px 12px;border-radius:8px;border:0;background:#10b981;color:#fff;cursor:pointer}
+
+    .task{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f3f4f6}
+    .task .left{display:flex;align-items:center;gap:8px}
+    .task .text.done{text-decoration:line-through;color:var(--muted)}
+
+    .events{grid-column:span 6}
+    .events-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+    .events-list li{padding:10px;border-radius:8px;border:1px solid #f3f4f6;cursor:pointer}
+    .event-title{font-weight:700}
+    .event-meta{font-size:13px;color:var(--muted)}
+
+    /* Greeting area */
+  .greeting-card{grid-column:span 12;padding:14px;margin-bottom:10px;border-radius:14px;background:var(--panel);box-shadow:var(--card-shadow);display:flex;justify-content:space-between;align-items:center}
+
+    /* Responsive */
+    @media(max-width:1000px){ .grid{grid-template-columns:repeat(8,1fr)} .reminders{grid-column:span 8} .events{grid-column:span 8} }
+    @media(max-width:720px){
+      .sidebar{ width:260px; position:fixed; left:0; top:0; height:100vh; transform:translateX(-100%); transition:transform .28s ease; box-shadow:0 12px 40px rgba(2,6,23,0.12); background:#f0f3f6; }
+      body.show-sidebar .sidebar{ transform:translateX(0); }
+      .main{ margin-left:0; }
+      .nav button .label{display:none}
+      .brand .title{font-size:20px}
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .card{padding:12px}
+      .reminders,.events{grid-column:span 6}
+    }
+
+    /* To-Do / Reminders card (full UI) */
+    .reminders .body { padding: 16px; }
+    .reminders h3 { margin: 0 0 12px 0; font-size: 18px; font-weight: 700; }
+    .reminders .task { padding: 10px 12px; border: 1px solid #e6eef7; border-radius: 8px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .reminders .task.done { background: #f0fdf4; border-color: #bbf7d0; }
+
+    /* Content grid - compact rows */
+    .grid { grid-auto-rows: minmax(10px, 1fr); align-items: start; }
+
+    /* Responsive overrides (mobile-first, safe defaults) */
+    :root{ --sidebar-width:250px; --collapsed-width:80px; --topbar-height:64px; --gap:16px; --content-padding:16px; }
+    html { font-size: 15px; }
+    @media (min-width:1200px){ html { font-size:16px; } }
+    @media (max-width:360px){ html { font-size:14px; } }
+    .burger{ z-index: 120; position: relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:8px; }
+    .sidebar .top .burger{ margin:0; }
+    .content{ padding: var(--content-padding); padding-top: calc(var(--topbar-height) + 12px); transition: padding .2s ease; }
+    .grid{ gap: var(--gap); grid-auto-rows: auto; }
+
+    /* Breakpoints for grid columns */
+  @media (min-width:1100px){ .grid{ grid-template-columns: repeat(12, 1fr); } .card{ grid-column: span 6; } .reminders, .events { grid-column: span 6; } }
+  @media (min-width:820px) and (max-width:1099px){ .grid{ grid-template-columns: repeat(8, 1fr); } .card{ grid-column: span 8; } .reminders, .events { grid-column: span 8; } }
+  @media (max-width:819px){ .grid{ grid-template-columns: repeat(6, 1fr); } .card{ grid-column: span 6; } .reminders, .events { grid-column: span 6; } }
+    @media (max-width:480px){ .grid{ grid-template-columns: 1fr; } .card{ grid-column: auto; width: 100%; padding:12px; } .greeting-card{ padding:12px; flex-direction:column; align-items:flex-start; gap:8px; } .top-right { gap:8px; } .avatar{ width:36px; height:36px; font-size:14px; } }
+
+    /* Sidebar behavior */
+    @media (min-width:721px){ .sidebar{ position:fixed; left:0; top:0; height:100vh; width:var(--sidebar-width); z-index:80; transition:width .18s ease, transform .25s ease; } body.collapsed .sidebar{ width: var(--collapsed-width); } .main{ margin-left: var(--sidebar-width); transition:margin-left .18s ease; } body.collapsed .main{ margin-left: var(--collapsed-width); } .topbar{ position:fixed; left: var(--sidebar-width); right:0; top:0; height:var(--topbar-height); z-index:85; transition:left .18s ease; } body.collapsed .topbar{ left: var(--collapsed-width); } .content{ padding-top: calc(var(--topbar-height) + 12px); } }
+
+    /* Improve touch targets */
+    .nav button, .nav .nav-item, .icon-btn, .burger { min-height:44px; padding:10px; }
+    .nav .icon{ width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center; }
+
+    /* Card responsiveness */
+    .card{ box-sizing:border-box; max-width:100%; }
+    .events .view-btn .btn{ width:100%; min-height:44px; }
+
+    /* Accessibility: visible focus states */
+    button:focus, .nav button:focus, .icon-btn:focus { outline:3px solid rgba(15,122,52,0.12); outline-offset:2px; }
+
+    /* Utility: make images/icons scale */
+    .icon, .avatar { font-size: clamp(14px, 2.6vw, 26px); }
+
+    /* Footer: fixed and visible above content, responsive */
+    .site-footer{ position:fixed; bottom:0; left:var(--sidebar-width); right:0; height:56px; display:flex; align-items:center; justify-content:center; background:#fff; border-top:1px solid #eef2f6; z-index:75; font-size:13px; color:#6b7280; }
+    .content{ padding-bottom: calc(56px + 20px); }
+    @media (max-width:720px){ .site-footer{ left:0; } }
+    @media (max-width:480px){ .site-footer{ height:64px; } .content{ padding-bottom: calc(64px + 20px); } }
+    /* Drop-shadow utilities (used for subtle elevation) */
+    .drop-shadow { box-shadow: 0 18px 44px rgba(2,6,23,0.12) !important; }
+    .drop-shadow-soft { box-shadow: 0 8px 20px rgba(2,6,23,0.08) !important; }
+    
+    /* Make readonly inputs visually distinct but readable */
+    input[readonly], select[readonly], textarea[readonly] {
+      background-color: #f8fafc !important;
+      color: #1f2937 !important;
+      border-color: #e5e7eb !important;
+      cursor: not-allowed;
+    }
+
+    /* Style disabled radio buttons and checkboxes to be visible */
+    input[type="radio"]:disabled, input[type="checkbox"]:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Make the photo upload area more visible when readonly */
+    .bg-gray-50[aria-label="1x1 photo"] {
+      background-color: #f8fafc !important;
+      border-color: #d1d5db !important;
+    }
+  </style>
+  <style>
+    /* Improved student card styles (normalized: no lift on hover; passive session label) */
+    .student-card {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:18px 18px; border-radius:14px;
+      background: linear-gradient(180deg, var(--accent-light, #f6fff9), #ffffff);
+  box-shadow: 0 8px 26px rgba(8,15,20,0.06);
+  transition: background-color .18s ease, border-color .12s ease; border: 2px solid transparent; /* keep consistent border width to avoid layout shift */
+      position:relative; overflow:visible; transform: none; /* ensure no transform/lift */
+    }
+
+    /* On hover and focus: fill the card with a light accent color (no lift). */
+    .student-card:hover, .student-card:focus-within {
+      box-shadow: 0 8px 26px rgba(8,15,20,0.06); /* unchanged */
+      border-color: transparent; /* remove border highlight */
+  /* subtle light-green fill (pastel) to match provided swatch; lowered opacity so it's less visible */
+  background: linear-gradient(180deg, rgba(125, 241, 152, 0.06), #ffffff);
+      transform: none; /* explicitly prevent any lift */
+    }
+
+    /* left accent bar using pseudo-element (static width) */
+    .student-card::before {
+      content: ''; position:absolute; left:0; top:8px; bottom:8px; width:8px; border-radius:10px; background:var(--accent, #10b981);
+      transition: background .18s ease, opacity .18s ease; box-shadow:0 2px 8px rgba(6,95,70,0.04) inset;
+    }
+    .student-card:hover::before, .student-card:focus-within::before { width:8px; }
+
+    .student-left { display:flex; gap:14px; align-items:center; }
+    .student-avatar { width:64px; height:64px; border-radius:9999px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--accent, #10b981); color:#fff; font-weight:800; font-size:18px; box-shadow: 0 6px 18px rgba(2,6,23,0.06); border:4px solid rgba(255,255,255,0.9); }
+    .student-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+    .student-info { min-width:0; }
+    .student-name { font-size:16px; font-weight:800; margin:0 0 6px 0; color:#0f172a; }
+    .student-meta { font-size:13px; color:#6b7280; line-height:1.35; }
+    .student-meta .meta-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .badge { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; }
+    .badge--sessions { background:linear-gradient(90deg,#eefdf6,#f0fff9); color:#047857; border:1px solid rgba(4,120,87,0.06); }
+    .badge--status { background:#eef2ff; color:#3730a3; border:1px solid rgba(99,102,241,0.06); }
+    .badge--refer { background:#fff7ed; color:#92400e; border:1px solid rgba(245,158,11,0.06); }
+    .student-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+    .student-actions { display:flex; gap:8px; }
+    .btn { padding:8px 12px; border-radius:10px; border:0; cursor:pointer; font-weight:700; font-size:13px; }
+    .btn--primary { background:#0f7a34; color:#fff; }
+    .btn--ghost { background:transparent; border:1px solid #eef2f6; color:#0f172a; }
+    .student-count { font-weight:800; color:#0f172a; font-size:14px; }
+    .student-sub { font-size:13px; color:#6b7280; }
+  /* Position and style the sessions badge but make it visually passive */
+  .student-card .session-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:110px; }
+  .student-card .session-highlight {
+    background: rgba(15,122,52,0.06); /* light passive background */
+    color: var(--accent, #0f7a34); /* use accent color for text to indicate relation but not action */
+    padding:6px 10px; border-radius:10px; font-weight:700; font-size:13px;
+    border: 1px solid rgba(15,122,52,0.12);
+    box-shadow: none; cursor: default; pointer-events: none; /* non-interactive */
+  }
+  .student-card .ellipsis-wrap { position:relative; }
+  /* search input icon inside */
+  .search-wrap { position:relative; }
+  .search-wrap .search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:15px; color:#0f7a34; pointer-events:none; }
+  .search-wrap input { padding-left:46px; border-radius:12px; box-shadow: 0 6px 18px rgba(15,122,52,0.06); border:1px solid rgba(15,122,52,0.06); }
+  /* Ensure global session-highlight uses the same passive style */
+  .session-highlight { background: rgba(15,122,52,0.06); color: var(--accent, #0f7a34); padding:6px 10px; border-radius:10px; font-weight:700; font-size:13px; border:1px solid rgba(15,122,52,0.12); box-shadow:none; cursor:default; pointer-events:none; }
+  /* Loading skeleton styles */
+  @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
+  .skeleton { pointer-events: none; }
+  /* stronger contrast for skeletons so they are easier to see */
+  .skeleton .skeleton-avatar, .skeleton .skeleton-line, .skeleton .skeleton-badge { background: linear-gradient(90deg,#e6f5ec 0%, #d6efe0 50%, #e6f5ec 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; border-radius:8px; }
+  .skeleton .skeleton-avatar { width:56px; height:56px; border-radius:9999px; flex-shrink:0; position:relative; display:flex; align-items:center; justify-content:center; box-shadow: inset 0 0 0 1px rgba(6,95,70,0.03); }
+  /* spinner more visible: darker top color and softer track */
+  .skeleton .spinner { width:22px; height:22px; border:3px solid rgba(6,95,70,0.18); border-top-color: #065f46; border-radius:50%; animation: spin 0.9s linear infinite; box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset; }
+  /* subtle card background during loading to contrast against page background */
+  .student-card.skeleton { background: linear-gradient(180deg, #fbfffb 0%, #f7fff7 100%); border:1px solid rgba(6,95,70,0.03); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .skeleton .skeleton-line { height:12px; border-radius:6px; margin-bottom:8px; }
+  .skeleton .skeleton-line.short { width:120px; }
+  </style>
+  <!-- Material Icons for profile dropdown icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    /* Profile dropdown styles (shared) */
+  .profile-dropdown{position:absolute;right:16px;top:56px;width:280px;min-width:325px;max-width:calc(100vw - 32px);background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(2,6,23,0.16);border:1px solid rgba(2,6,23,0.06);z-index:1200;overflow:hidden;color:#111827;font-size:14px}
+    .profile-dropdown .pd-head{display:flex;gap:16px;align-items:center;padding:18px 18px 14px 18px;border-bottom:1px solid #f1f4f7}
+    .pd-head .pd-avatar{width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid rgba(2,6,23,0.04);background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green)}
+    .pd-head .pd-meta{min-width:0}
+    .pd-head .pd-meta .pd-name{font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-head .pd-meta .pd-email{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .profile-dropdown .pd-list{padding:8px 0}
+    .profile-dropdown .pd-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid #f1f4f7;background:transparent;color:#111827;text-decoration:none;cursor:pointer}
+    .profile-dropdown .pd-item:first-of-type{border-top:0}
+    .profile-dropdown .pd-item:hover{background:#f8fafc}
+    .profile-dropdown .pd-item .pd-icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--green);font-size:16px}
+    .profile-dropdown .pd-item .pd-label{flex:1;font-weight:600}
+    .profile-dropdown .pd-item .pd-caret{color:rgba(0,0,0,0.4)}
+    .profile-dropdown .pd-footer{background:var(--green);color:#fff;padding:12px 16px;text-align:center;font-weight:800}
+    .profile-dropdown .pd-footer button{background:transparent;border:0;color:inherit;font-weight:800;cursor:pointer;width:100%}
+  .skeleton .skeleton-line.medium { width:180px; }
+  .skeleton .skeleton-line.long { width:260px; }
+  .skeleton .skeleton-badge { width:90px; height:28px; border-radius:14px; }
+    /* responsive tweaks */
+    @media (max-width:720px){ .student-card { flex-direction:column; align-items:stretch; } .student-right{ align-items:flex-start; flex-direction:row; justify-content:space-between; } }
+  </style>
+  <!-- Mobile bottom nav (renders only on phones) -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Mobile navigation" style="display:none"></nav>
+  </head>
+  <body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="top">
+        <div class="logo">SafeSpace</div>
+        <button class="burger" id="burger">☰</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item" data-name="Home"><span class="icon">🏠</span><span class="label">Home</span></button>
+        <button class="nav-item" data-name="Appointments"><span class="icon">📅</span><span class="label">Appointments</span></button>
+        <button class="nav-item active" data-name="Students"><span class="icon">🎓</span><span class="label">Students</span></button>
+        <button class="nav-item" data-name="Messages"><span class="icon">✉️</span><span class="label">Messages</span></button>
+      
+          <button class="nav-item" data-name="Settings"><span class="icon">⚙️</span><span class="label">Settings</span></button>
+      </nav>
+      <div class="bottom">
+        <div style="padding:10px">
+          <div class="logged" style="margin-top:12px">Logged in as:<br><strong>Counselor Jean Denise</strong></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="brand">
+          <div class="title">SafeSpace</div>
+          <div class="sub">Counselor Portal</div>
+        </div>
+
+  <div class="top-right" style="position:relative">
+          <div style="text-align:right;margin-right:10px">
+            <div style="font-weight:700;font-size:16px" id="greeting">Good Morning, Counselor 👋</div>
+            <div style="font-size:13px;opacity:0.95" id="datetime">Sunday, Sept 7, 2025 — 06:45 AM</div>
+          </div> <button id="notifBtn" class="icon-btn" aria-expanded="false" title="Notifications" style="color:white;padding:8px;border:none;border:0;display:inline-flex;align-items:center;justify-content:center;box-shadow:none;">
+                        <i class="material-icons" style="color:white;font-size:30px;border:none;outline:none;background:transparent;">notifications</i>
+                    </button>
+          <button class="icon-btn" id="profileBtn" title="Profile" style="position:relative;padding:0;">
+            <div class="avatar" id="userAvatar" style="width:60px;height:60px;flex-shrink:0;position:relative;">
+              <img id="userAvatarImg" src="" alt="Profile" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+              <span id="userAvatarText" style="font-size:20px;">C</span>
+              <div style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                <span style="font-size:10px;color:#333;font-weight:bold;">v</span>
+              </div>
+            </div>
+          </button>
+          <!-- Profile dropdown menu (styled) -->
+          <div id="profileDropdown" class="profile-dropdown" aria-hidden="true" style="display:none;">
+              <div class="pd-head">
+                <div class="pd-avatar">
+                  <img id="profileDropdownAvatar" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+                </div>
+                <div class="pd-meta">
+                  <div id="profileDropdownName" class="pd-name">Hi, RSU SAFESPACE</div>
+                  <div id="profileDropdownEmail" class="pd-email">rsusafespace@gmail.com</div>
+                </div>
+              </div>
+
+              <div style="padding:8px 6px;display:flex;flex-direction:column;gap:6px">
+                <button id="viewAccountLink" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">person</i>
+                    <span style="flex:1;text-align:left">Manage your profile</span>
+                </button>
+                <button id="settingsBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">settings</i>
+                    <span style="flex:1;text-align:left">Settings &amp; privacy</span>
+                    <i class="material-icons icon" style="font-size:16px;opacity:0.7;">chevron_right</i>
+                </button>
+                <button id="dropdownLogoutBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;color:#111;font-weight:600">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;color:#ef4444">logout</i>
+                    <span style="flex:1;text-align:left">Log Out</span>
+                </button>
+              </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">INDIVIDUAL INVENTORY</h3>
+          </div>
+
+          <!-- Data Privacy Statement -->
+          <div class="border border-gray-300 p-3 mb-6 text-sm text-gray-700 rounded">
+            <p><strong>Data Privacy Statement</strong></p>
+            <p>
+              Romblon State University respects your right to privacy and is committed to protecting
+              the confidentiality of your personal information. By filling out this form, you are consenting
+              to the collection, processing, and use of the information in accordance with this privacy notice.
+              The information you have provided is used for access provision, attendance, monitoring,
+              evaluation, documentation, and communication purposes. The University shall only retain
+              the said personal information until it serves its purpose, after which it shall be securely
+              disposed of.
+            </p>
+          </div>
+
+          <!-- Student Info Fields -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div class="md:col-span-3 space-y-4">
+              <!-- Name -->
+              <div class="flex items-center border border-gray-400">
+                <label class="w-28 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name:</label>
+                <div class="flex-1 grid grid-cols-4 divide-x divide-gray-400">
+                  <input id="lastNameInput" type="text" placeholder="Last Name" class="p-2 text-sm w-full border-none focus:ring-0" readonly>
+                  <input id="firstNameInput" type="text" placeholder="First Name" class="p-2 text-sm w-full border-none focus:ring-0" readonly>
+                  <input id="middleInitialInput" type="text" placeholder="Middle Initial" class="p-2 text-sm w-full border-none focus:ring-0" readonly>
+                  <input id="suffixInput" type="text" placeholder="Suffix (optional)" class="p-2 text-sm w-full border-none focus:ring-0" readonly>
+                </div>
+              </div>
+
+              <!-- Program and Year Level (Horizontal Layout) -->
+              <div class="flex border border-gray-400">
+                <!-- Program -->
+                <div class="flex flex-1 items-center border-r border-gray-400">
+                  <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Program:</label>
+                  <input id="programInput" type="text" placeholder="e.g., BS in Computer Science" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+                </div>
+
+                <!-- Year Level -->
+                <div class="flex flex-1 items-center">
+                  <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Year Level:</label>
+                  <input id="yearLevelInput" type="text" placeholder="e.g., 2nd Year" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+                </div>
+              </div>
+
+              <!-- Academic Year Admitted -->
+              <div>
+                <label class="block font-semibold">Academic Year Admitted</label>
+                <div class="flex items-center gap-4 mt-1">
+                  <label class="flex items-center gap-1">
+                    <input type="radio" name="academicSemester" disabled class="accent-green-700"> 1st Sem
+                  </label>
+                  <label class="flex items-center gap-1">
+                    <input type="radio" name="academicSemester" disabled class="accent-green-700"> 2nd Sem
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <span>Year</span>
+                    <input type="text" value="2022 - 2023" class="bg-gray-100 p-2 rounded border w-32" readonly>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status of Enrolment -->
+              <div>
+                <label class="block font-semibold">Status of Enrolment</label>
+                <div class="flex items-center gap-4 mt-1">
+                  <label class="flex items-center gap-1">
+                    <input type="radio" name="statusEnrolment" disabled class="accent-green-700"> New
+                  </label>
+                  <label class="flex items-center gap-1">
+                    <input type="radio" name="statusEnrolment" disabled class="accent-green-700"> Transferee
+                  </label>
+                  <label class="flex items-center gap-1">
+                    <input type="radio" name="statusEnrolment" disabled class="accent-green-700"> Returnee
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1x1 Photo Placeholder (expanded) -->
+            <div class="relative border border-gray-300 flex items-center justify-center text-sm text-gray-500 rounded bg-gray-50 overflow-hidden w-60 h-60 drop-shadow-soft" aria-label="1x1 photo">
+              <input id="photoInput" type="file" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="previewPhoto(event)" aria-label="Choose profile photo" disabled />
+              <img id="photoPreview" src="" alt="1x1 Photo" class="hidden object-cover w-full h-full" />
+
+              <div id="photoPlaceholder" class="flex items-center justify-center text-gray-500 w-full h-full">
+                1x1 Photo
+              </div>
+
+              <button type="button" class="absolute top-2 right-2 bg-white text-green-700 border border-gray-200 px-2 py-1 text-xs rounded shadow-sm" onclick="document.getElementById('photoInput').click();" style="display:none;">Change</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 1: Background Information -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">I. Background Information</h3>
+          </div>
+
+          <!-- Present Address -->
+          <div class="flex items-center border border-gray-400">
+            <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Present Address:</label>
+            <input id="presentAddressInput" type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+          </div>
+
+          <!-- FB Messenger -->
+          <div class="flex items-center border border-t-0 border-gray-400">
+            <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">FB Messenger:</label>
+            <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+          </div>
+
+          <!-- Permanent Address -->
+          <div class="flex items-center border border-t-0 border-gray-400">
+            <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Permanent Address:</label>
+            <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+          </div>
+          <div class="flex items-center gap-2 mt-2 ml-1">
+            <input type="checkbox" id="sameAddress" disabled class="accent-green-700">
+            <label for="sameAddress" class="text-gray-700 text-sm">Check if same as present address</label>
+          </div>
+
+          <!-- Email -->
+          <div class="flex items-center border border-t-0 border-gray-400 mt-2">
+            <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Email Address:</label>
+            <input id="emailInput" type="email" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+          </div>
+
+          <!-- Birth Info -->
+          <div class="grid grid-cols-1 md:grid-cols-3 border border-t-0 border-gray-400">
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-48 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Date of Birth:</label>
+              <input id="dobInput" type="date" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Contact No.:</label>
+              <input id="contactInput" type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Place of Birth:</label>
+              <input id="placeOfBirthInput" type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- Sex, Age, Civil Status, Religion -->
+          <div class="grid grid-cols-1 md:grid-cols-4 border border-t-0 border-gray-400">
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Sex:</label>
+              <input id="sexInput" type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-32 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Age:</label>
+              <input id="ageInput" type="number" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Civil Status:</label>
+              <div class="flex gap-3 px-2">
+                <label class="flex items-center gap-1 text-sm"><input type="radio" name="civilStatus" disabled class="accent-green-700"> Single</label>
+                <label class="flex items-center gap-1 text-sm"><input type="radio" name="civilStatus" disabled class="accent-green-700"> Married</label>
+                <label class="flex items-center gap-1 text-sm"><input type="radio" name="civilStatus" disabled class="accent-green-700"> Others</label>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Religion:</label>
+              <input id="religionInput" type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- If Married -->
+          <div class="grid grid-cols-1 md:grid-cols-4 border border-t-0 border-gray-400">
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-56 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name of Spouse:</label>
+              <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Occupation:</label>
+              <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-r border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">No. of Children:</label>
+              <input type="number" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center">
+              <label class="w-56 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Address of Spouse:</label>
+              <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- IP Member -->
+          <div class="flex items-center border border-t-0 border-gray-400">
+            <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Member of Indigenous People Community?</label>
+            <div class="flex items-center gap-3 px-2">
+              <label class="flex items-center gap-1"><input type="radio" name="ipMember" disabled class="accent-green-700"> Yes</label>
+              <label class="flex items-center gap-1"><input type="radio" name="ipMember" disabled class="accent-green-700"> No</label>
+              <input type="text" placeholder="If yes, specify group" class="p-1 border rounded text-sm bg-gray-100 w-56" readonly>
+            </div>
+          </div>
+
+          <!-- Present Living Arrangement -->
+          <div class="border border-t-0 border-gray-400">
+            <label class="block bg-gray-100 border-b border-gray-400 px-2 py-2 font-semibold text-sm">Present Living Arrangement:</label>
+            <div class="flex flex-wrap gap-3 px-3 py-2">
+              <label class="flex items-center gap-1"><input type="radio" name="livingArrangement" disabled class="accent-green-700"> Own House</label>
+              <label class="flex items-center gap-1"><input type="radio" name="livingArrangement" disabled class="accent-green-700"> Apartment</label>
+              <label class="flex items-center gap-1"><input type="radio" name="livingArrangement" disabled class="accent-green-700"> Boarding House</label>
+              <label class="flex items-center gap-1"><input type="radio" name="livingArrangement" disabled class="accent-green-700"> Living with Relatives/Non-Relatives</label>
+            </div>
+
+            <div class="flex border-t border-gray-400">
+              <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Name of Landlord/Landlady:</label>
+              <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex border-t border-gray-400">
+              <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Contact Number:</label>
+              <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Family Background -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">II. Family Background</h3>
+          </div>
+
+          <!-- FATHER INFORMATION -->
+          <h4 class="text-md font-semibold text-gray-800 mb-2">Father's Information</h4>
+          <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Father's Name</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Age</label>
+              <input type="number" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Occupation</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Father's Address</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="p-2 flex flex-col md:flex-row gap-4">
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Permanent Address</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Present Address</label>
+            </div>
+          </div>
+
+          <!-- MOTHER INFORMATION -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Mother's Information</h4>
+          <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Mother's Name</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Age</label>
+              <input type="number" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Occupation</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Mother's Address</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="p-2 flex flex-col md:flex-row gap-4">
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Permanent Address</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" disabled class="accent-green-700"> Same as Present Address</label>
+            </div>
+          </div>
+
+          <!-- ADDITIONAL FAMILY INFO -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Additional Family Details</h4>
+          <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Birth Order</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">No. of Brothers</label>
+              <input type="number" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">No. of Sisters</label>
+              <input type="number" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- LEGAL GUARDIAN -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Legal Guardian Information</h4>
+          <div class="border border-gray-400 rounded-md overflow-hidden text-sm text-gray-700">
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Guardian's Name</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Relationship</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center border-b border-gray-400">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Contact No.</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex items-center">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold">Address</label>
+              <input type="text" value="" class="flex-1 p-2 border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- MARITAL STATUS -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Marital Status of Parents</h4>
+          <div class="p-2 flex flex-wrap gap-4 text-sm">
+            <label><input type="radio" name="parentsMaritalStatus" disabled class="accent-green-700"> Living Together</label>
+            <label><input type="radio" name="parentsMaritalStatus" disabled class="accent-green-700"> Separated</label>
+            <label><input type="radio" name="parentsMaritalStatus" disabled class="accent-green-700"> One/Both Deceased</label>
+            <label><input type="radio" name="parentsMaritalStatus" disabled class="accent-green-700"> Solo Parent (Mother/Father)</label>
+            <label class="flex items-center gap-1"><input type="radio" name="parentsMaritalStatus" disabled class="accent-green-700"> Others: <input type="text" class="border-b border-gray-400 bg-transparent w-32 focus:outline-none" readonly></label>
+          </div>
+
+          <!-- RELATIONSHIPS -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Current Description of Home Life</h4>
+          <div class="space-y-3 text-sm text-gray-700">
+            <div class="flex flex-wrap gap-4">
+              <label class="font-semibold">Relationship with Mother:</label>
+              <label><input type="radio" name="relMother" disabled class="accent-green-700"> Very Close</label>
+              <label><input type="radio" name="relMother" disabled class="accent-green-700"> Close</label>
+              <label><input type="radio" name="relMother" disabled class="accent-green-700"> Distant</label>
+            </div>
+            <div class="flex flex-wrap gap-4">
+              <label class="font-semibold">Relationship with Father:</label>
+              <label><input type="radio" name="relFather" disabled class="accent-green-700"> Very Close</label>
+              <label><input type="radio" name="relFather" disabled class="accent-green-700"> Close</label>
+              <label><input type="radio" name="relFather" disabled class="accent-green-700"> Distant</label>
+            </div>
+            <div class="flex flex-wrap gap-4">
+              <label class="font-semibold">Relationship with Sibling/s:</label>
+              <label><input type="radio" name="relSiblings" disabled class="accent-green-700"> Very Close</label>
+              <label><input type="radio" name="relSiblings" disabled class="accent-green-700"> Close</label>
+              <label><input type="radio" name="relSiblings" disabled class="accent-green-700"> Distant</label>
+            </div>
+          </div>
+
+          <!-- SIBLINGS ENROLLED AT RSU -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Siblings Enrolled at RSU</h4>
+          <div class="overflow-x-auto">
+            <table class="min-w-full border text-gray-700 text-sm">
+              <thead class="bg-green-50 text-green-700">
+                <tr>
+                  <th class="p-2 border">Name</th>
+                  <th class="p-2 border">Program & Year Level</th>
+                  <th class="p-2 border">Contact No.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- HOUSEHOLD INFO -->
+          <div class="mt-6 flex flex-col md:flex-row gap-4">
+            <div class="flex-1 flex items-center border border-gray-400 rounded">
+              <label class="w-64 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Number of persons in the household:</label>
+              <input type="number" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex-1 flex items-center border border-gray-400 rounded">
+              <label class="w-40 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">Head of Household:</label>
+              <input type="text" class="flex-1 p-2 text-sm border-none focus:ring-0" readonly>
+            </div>
+          </div>
+
+          <!-- FAMILY INCOME -->
+          <h4 class="text-md font-semibold text-gray-800 mt-6 mb-2">Estimated Family Monthly Income</h4>
+          <div class="flex flex-col mt-2 space-y-1 text-sm text-gray-700">
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> Less than ₱10,957</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱9,520 – ₱21,194</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱21,194 – ₱43,828</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱43,828 – ₱76,669</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱76,669 – ₱131,484</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱131,484 – ₱219,140</label>
+            <label><input type="radio" name="familyIncome" disabled class="accent-green-700"> ₱219,140 and up</label>
+          </div>
+        </section>
+
+        <!-- Section 3: Medical History -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">III. Medical History</h3>
+          </div>
+
+          <!-- Therapy / Counseling -->
+          <div class="flex items-center border border-gray-400">
+            <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Have you received therapy, counseling, or treatment in the past?
+            </label>
+            <div class="flex items-center gap-4 px-3">
+              <label class="flex items-center gap-1">
+                <input type="radio" name="therapyReceived" disabled class="accent-green-700"> Yes
+              </label>
+              <label class="flex items-center gap-1">
+                <input type="radio" name="therapyReceived" disabled class="accent-green-700"> No
+              </label>
+            </div>
+            <input type="text" placeholder="If Yes, when and with whom?" class="flex-1 p-2 text-sm border-l border-gray-400 focus:ring-0 bg-gray-100" readonly>
+          </div>
+
+          <!-- Physical Disability -->
+          <div class="flex border border-t-0 border-gray-400">
+            <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Physical Disability:
+            </label>
+            <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100" readonly>
+            <label class="w-40 bg-gray-100 border-x border-gray-400 px-2 py-2 font-semibold text-sm">
+              PWD ID No.:
+            </label>
+            <input type="text" value="" class="w-48 p-2 text-sm border-none focus:ring-0 bg-gray-100" readonly>
+          </div>
+
+          <!-- Psychosocial Disability -->
+          <div class="flex border border-t-0 border-gray-400">
+            <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Psychosocial Disability:
+            </label>
+            <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100" readonly>
+            <label class="w-40 bg-gray-100 border-x border-gray-400 px-2 py-2 font-semibold text-sm">
+              PWD ID No.:
+            </label>
+            <input type="text" value="" class="w-48 p-2 text-sm border-none focus:ring-0 bg-gray-100" readonly>
+          </div>
+
+          <!-- Current Medications -->
+          <div class="flex border border-t-0 border-gray-400">
+            <label class="w-60 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Current Medications:
+            </label>
+            <input type="text" value="" class="flex-1 p-2 text-sm border-none focus:ring-0 bg-gray-100" readonly>
+          </div>
+        </section>
+
+        <!-- Section 4: Educational Background -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">IV. Educational Background</h3>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full border text-gray-700 text-sm">
+              <thead class="bg-green-50 text-green-700">
+                <tr>
+                  <th class="p-2 border">Level</th>
+                  <th class="p-2 border">School Name</th>
+                  <th class="p-2 border">Year Graduated</th>
+                  <th class="p-2 border">Honors Received</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="border p-2">Elementary</td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="number" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+                <tr>
+                  <td class="border p-2">Junior High</td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="number" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+                <tr>
+                  <td class="border p-2">Senior High</td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="number" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" value="" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- V. Employment History -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">V. Employment History</h3>
+          </div>
+
+          <!-- Work Experience -->
+          <div class="flex items-center border border-gray-400">
+            <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Do you have a work experience?
+            </label>
+            <div class="flex items-center gap-4 px-3">
+              <label class="flex items-center gap-1">
+                <input type="radio" name="workExperience" disabled class="accent-green-700"> Yes
+              </label>
+              <label class="flex items-center gap-1">
+                <input type="radio" name="workExperience" disabled class="accent-green-700"> No
+              </label>
+            </div>
+            <span class="text-gray-700 px-2 text-sm">(If yes, please fill out the table below.)</span>
+          </div>
+
+          <!-- Employment Table -->
+          <div class="overflow-x-auto border border-t-0 border-gray-400">
+            <table class="min-w-full text-gray-700 text-sm">
+              <thead class="bg-green-50 text-green-700">
+                <tr>
+                  <th class="p-2 border">Position Title</th>
+                  <th class="p-2 border">Agency/Company/Organization</th>
+                  <th class="p-2 border">Status of Appointment</th>
+                  <th class="p-2 border">Inclusive Dates From</th>
+                  <th class="p-2 border">Inclusive Dates To</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="date" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="date" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+                <tr>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="text" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="date" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                  <td class="border p-2"><input type="date" class="bg-gray-100 p-1 rounded w-full border" readonly></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- VI. Other Relevant Information -->
+        <section class="bg-white mt-8 p-6 rounded-xl shadow-md">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-green-700">VI. Other Relevant Information</h3>
+          </div>
+
+          <!-- Scholarship -->
+          <div class="flex items-center border border-gray-400">
+            <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+              Are you enjoying any scholarship grant/s?
+            </label>
+            <div class="flex items-center gap-4 px-3">
+              <label class="flex items-center gap-1">
+                <input type="radio" name="scholarship" disabled class="accent-green-700"> Yes
+              </label>
+              <label class="flex items-center gap-1">
+                <input type="radio" name="scholarship" disabled class="accent-green-700"> No
+              </label>
+            </div>
+            <input type="text" placeholder="If yes, put the name of the sponsor" class="flex-1 p-2 text-sm border-l border-gray-400 bg-gray-100 focus:ring-0" readonly>
+          </div>
+
+          <!-- Interests -->
+          <div class="border border-t-0 border-gray-400">
+            <div class="flex border-b border-gray-400">
+              <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                Performing Arts (Sports, Drama, Singing, Dancing, etc.)
+              </label>
+              <input type="text" class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex border-b border-gray-400">
+              <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                Creative Arts (Painting, Drawing, Photography, etc.)
+              </label>
+              <input type="text" class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex border-b border-gray-400">
+              <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                Literary Arts (Declamation, Reading, Writing, etc.)
+              </label>
+              <input type="text" class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0" readonly>
+            </div>
+            <div class="flex">
+              <label class="w-80 bg-gray-100 border-r border-gray-400 px-2 py-2 font-semibold text-sm">
+                Others, specify:
+              </label>
+              <input type="text" class="flex-1 p-2 text-sm bg-gray-100 border-none focus:ring-0" readonly>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer" role="contentinfo">
+    © 2025 SafeSpace | Counseling Management System
+  </footer>
+  
+  <!-- Compact Confirm Modal (shared across pages) -->
+  <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(2,6,23,0.2);padding:18px;max-width:420px;width:92%;">
+      <h3 id="confirmModalTitle" style="margin:0 0 8px 0;font-size:16px;font-weight:700;">Confirm</h3>
+      <div id="confirmModalMessage" style="color:#374151;font-size:14px;margin-bottom:14px;">Are you sure?</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button id="confirmCancelBtn" style="background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700;min-width:96px;">Cancel</button>
+        <button id="confirmOkBtn" style="background:#0f6a56;color:#ffffff;border:0;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700;min-width:96px;box-shadow:0 6px 18px rgba(0,0,0,0.10);">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const navBtns = document.querySelectorAll('.nav .nav-item, .nav button');
+    const map = { Home: 'Acounselor_HOME.HTML', Appointments: 'counselor_APPOINTMENT.HTML', Students: 'counselor_student.html', Messages: 'counselor_message.html', Settings: 'counselor_setting.html' };
+    navBtns.forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        const href = btn.dataset.href || map[btn.dataset.name];
+        if(!href) return;
+        if (btn.tagName.toLowerCase() === 'a') return;
+        window.location.href = href;
+      });
+    });
+  })();
+  </script>
+
+  <script>
+  function previewPhoto(event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    const img = document.getElementById('photoPreview');
+    const placeholder = document.getElementById('photoPlaceholder');
+
+    reader.onload = function(e) {
+      img.src = e.target.result;
+      img.classList.remove('hidden');
+      placeholder.classList.add('hidden');
+    };
+    if (file) reader.readAsDataURL(file);
+  }
+  </script>
+
+  <script>
+  // Hamburger / sidebar toggle
+  (function(){
+    const burger = document.getElementById('burger');
+    const sidebar = document.querySelector('.sidebar');
+    if (!burger) return;
+
+    function isMobile(){ return window.matchMedia('(max-width:720px)').matches; }
+    function openMobile(){ document.body.classList.add('show-sidebar'); burger.setAttribute('aria-expanded','true'); }
+    function closeMobile(){ document.body.classList.remove('show-sidebar'); burger.setAttribute('aria-expanded','false'); }
+
+    function toggle(){
+      if (isMobile()){
+        if (document.body.classList.contains('show-sidebar')) closeMobile(); else openMobile();
+      } else {
+        // On wider screens toggle collapsed state
+        document.body.classList.toggle('collapsed');
+        // aria-expanded true means sidebar visible (not collapsed)
+        burger.setAttribute('aria-expanded', document.body.classList.contains('collapsed') ? 'false' : 'true');
+      }
+    }
+
+    burger.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
+
+    // Close mobile sidebar when clicking outside
+    document.addEventListener('click', function(e){
+      if (!isMobile()) return;
+      if (!document.body.classList.contains('show-sidebar')) return;
+      if (sidebar && !sidebar.contains(e.target) && e.target !== burger){ closeMobile(); }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeMobile(); });
+
+    // Initialize aria state
+    burger.setAttribute('aria-expanded', 'false');
+  })();
+  </script>
+  
+</body>
+</html>
+
+<script type="module">
+import { db } from './main.js';
+import { ref, get, query, orderByChild, equalTo } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js';
+
+function parseQuery(){
+  const s = window.location.search.replace(/^\?/, '');
+  const out = {};
+  if (!s) return out;
+  s.split('&').forEach(p => {
+    const [k,v] = p.split('=');
+    if (!k) return;
+    try { out[decodeURIComponent(k)] = decodeURIComponent(v || ''); } catch(e){ out[k]=v||''; }
+  });
+  return out;
+}
+
+function showNotFound(){
+  const main = document.querySelector('main');
+  if (!main) return;
+  const el = document.createElement('div');
+  el.textContent = 'Student not found or missing identifier in URL.';
+  el.style.cssText = 'color:#b91c1c;padding:12px;font-weight:700;background:#fff3f2;border:1px solid #fee2e2;border-radius:8px;margin-bottom:12px;';
+  main.prepend(el);
+  // Debug: log to console so developer can see why nothing displayed
+  try { console.info('[profile] showNotFound() called — check query params and DB read.'); } catch(e){}
+}
+
+function setVal(id, value){
+  const el = document.getElementById(id);
+  if (!el) return;
+  try { el.value = value == null ? '' : value; } catch(e) { /* ignore */ }
+}
+
+// Function to set radio buttons based on student data
+function setRadioButton(groupName, value) {
+  const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+  radios.forEach(radio => {
+    if (radio.value === value) {
+      radio.checked = true;
+    }
+  });
+}
+
+// Function to set checkboxes based on student data  
+function setCheckbox(checkboxId, isChecked) {
+  const checkbox = document.getElementById(checkboxId);
+  if (checkbox) {
+    checkbox.checked = isChecked;
+  }
+}
+
+// Update page title with student name
+function updatePageTitle(student) {
+  const firstName = student.first_name || student.firstName || '';
+  const lastName = student.last_name || student.lastName || '';
+  if (firstName || lastName) {
+    document.title = `SafeSpace — ${firstName} ${lastName}'s Profile`;
+    
+    // Also update the greeting in the header
+    const greeting = document.getElementById('greeting');
+    if (greeting) {
+      greeting.textContent = `Student Profile: ${firstName} ${lastName}`;
+    }
+  }
+}
+
+async function loadStudentFromDb(){
+  const params = parseQuery();
+  const uid = params.uid || params.u;
+  const studentId = params.student_id || params.studentid || params.sid;
+  let student = null;
+  console.groupCollapsed('[profile] loadStudentFromDb start');
+  console.log('[profile] parsed query params:', params);
+  console.log('[profile] uid:', uid, ' studentId:', studentId);
+  console.groupEnd();
+  
+  try {
+    if (uid){
+      const snap = await get(ref(db, `students/${uid}`));
+      console.log('[profile] fetched by uid, snapshot exists:', snap.exists());
+      if (snap.exists()) student = snap.val();
+    } else if (studentId){
+      const q = query(ref(db, 'students'), orderByChild('student_id'), equalTo(studentId));
+      const snap = await get(q);
+      console.log('[profile] fetched by student_id query, snapshot exists:', snap.exists());
+      if (snap.exists()){
+        const val = snap.val();
+        const k = Object.keys(val || {})[0];
+        if (k) student = val[k];
+        console.log('[profile] query result key:', k);
+      }
+    }
+  } catch (err){
+    console.error('[profile] Failed to fetch student', err);
+  }
+
+  if (!student){ showNotFound(); return; }
+  console.groupCollapsed('[profile] Student loaded — populating fields');
+  console.log('[profile] student object:', student);
+  console.groupEnd();
+  // Update page title and greeting
+  updatePageTitle(student);
+
+  // Populate main basic fields (safe lookups)
+  setVal('lastNameInput', student.last_name || student.lastName || student.lastname || '');
+  setVal('firstNameInput', student.first_name || student.firstName || student.firstname || '');
+  setVal('middleInitialInput', student.middle_initial || student.middleInitial || student.mi || '');
+  setVal('suffixInput', student.suffix || student.sfx || '');
+  setVal('programInput', student.program || student.course || student.college || '');
+  setVal('yearLevelInput', student.year_level || student.year || student.yearLevel || '');
+  setVal('presentAddressInput', student.present_address || student.address || '');
+  setVal('emailInput', student.email || student.email_address || '');
+  setVal('dobInput', student.dob || student.birthdate || student.date_of_birth || '');
+  setVal('contactInput', student.contact || student.contact_no || student.phone || '');
+  setVal('placeOfBirthInput', student.place_of_birth || '');
+  setVal('sexInput', student.sex || student.gender || '');
+  setVal('ageInput', student.age || '');
+  setVal('religionInput', student.religion || '');
+
+  // Debug: list a few DOM values after population to confirm
+  try {
+    const debugIds = ['lastNameInput','firstNameInput','programInput','yearLevelInput','emailInput','dobInput','contactInput'];
+    const result = {};
+    debugIds.forEach(id => {
+      const el = document.getElementById(id);
+      result[id] = el ? el.value : null;
+    });
+    console.log('[profile] populated values snapshot:', result);
+  } catch(e){ console.warn('[profile] debug snapshot failed', e); }
+
+  // Populate family information
+  setVal('fatherName', student.father_name || student.fatherName || '');
+  setVal('fatherAge', student.father_age || student.fatherAge || '');
+  setVal('fatherOccupation', student.father_occupation || student.fatherOccupation || '');
+  setVal('fatherContact', student.father_contact || student.fatherContact || '');
+  setVal('fatherAddress', student.father_address || student.fatherAddress || '');
+
+  setVal('motherName', student.mother_name || student.motherName || '');
+  setVal('motherAge', student.mother_age || student.motherAge || '');
+  setVal('motherOccupation', student.mother_occupation || student.motherOccupation || '');
+  setVal('motherContact', student.mother_contact || student.motherContact || '');
+  setVal('motherAddress', student.mother_address || student.motherAddress || '');
+
+  // Handle radio buttons and checkboxes based on your data structure
+  // Example: setRadioButton('civilStatus', student.civil_status);
+  // Example: setCheckbox('sameAddress', student.same_address);
+
+  // Photo
+  const photo = student.photoURL || student.photo || student.photoUrl || student.picture || '';
+  if (photo){
+    const img = document.getElementById('photoPreview');
+    const ph = document.getElementById('photoPlaceholder');
+    if (img){ 
+      img.src = photo; 
+      img.classList.remove('hidden'); 
+    }
+    if (ph) ph.classList.add('hidden');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // attempt to load student; silent fail will show not found message
+  loadStudentFromDb().catch(e => console.error(e));
+});
+</script>

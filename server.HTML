@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSpace — Student Portal</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --green: #0f7a34;
+            --muted: #6b7280;
+            --bg: #f4f6fb;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--bg);
+            color: #111;
+        }
+        
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background: #f0f3f6;
+            border-right: 1px solid rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow: auto;
+            z-index: 40;
+        }
+        
+        .sidebar .top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 20px;
+            background: var(--green);
+            color: #fff;
+        }
+        
+        .logo {
+            font-weight: 800;
+            font-size: 20px;
+        }
+        
+        .burger {
+            background: transparent;
+            border: 0;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 6px;
+            z-index: 120;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+        }
+        
+        /* Navigation Styles */
+        .nav {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .nav button {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 10px;
+            border-radius: 8px;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            text-align: left;
+            color: #1f2937;
+            font-weight: 400;
+            min-height: 44px;
+        }
+        
+        .nav .label {
+            font-size: 15px;
+        }
+        
+        .nav button.active {
+            background: rgba(15,122,52,0.08);
+            color: var(--green);
+        }
+        
+        .nav .icon {
+            width: 56px;
+            height: 48px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(14px, 2.6vw, 26px);
+            line-height: 1;
+        }
+        
+        /* Main Content Area */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 35px 32px;
+            background: var(--green);
+            color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            height: 64px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        
+        .brand {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .brand .title {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        
+        .brand .sub {
+            font-size: 13px;
+            opacity: 0.95;
+        }
+        
+        .top-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .icon-btn {
+            background: transparent;
+            border: 0;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            min-height: 44px;
+            padding: 10px;
+        }
+        
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #fff;
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 20px;
+        }
+        
+        /* Content Styles */
+        .content {
+            padding: 16px;
+            padding-top: 70px;
+            padding-bottom: 76px;
+        }
+        
+        .privacy-container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        /* Privacy Header Styles */
+        .privacy-header-updated {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .privacy-header-updated .privacy-title {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        
+        .privacy-header-updated .last-updated {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.25rem;
+            font-weight: 500;
+        }
+        
+        .privacy-header-updated p {
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #4a5568;
+        }
+        
+        .privacy-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .feature-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            color: #1a1a1a;
+            font-size: 1.1rem;
+        }
+        
+        .feature-description {
+            font-size: 0.9rem;
+            color: #64748b;
+            line-height: 1.5;
+            flex: 1;
+        }
+        
+        /* Section Styles */
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .section:hover {
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+        }
+        
+        .section-header {
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .section-icon {
+            font-size: 2rem;
+            color: var(--green);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .section-subtitle {
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .section-content {
+            margin-top: 1.25rem;
+        }
+        
+        .info-list {
+            list-style: none;
+            margin-bottom: 1.5rem;
+        }
+        
+        .info-list li {
+            padding: 1.25rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.875rem 1.5rem;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: var(--green);
+            color: white;
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
+        }
+        
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--green);
+            border: 2px solid var(--green);
+        }
+        
+        .btn-outline:hover {
+            background: var(--green);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+        }
+        
+        .btn-warning {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.25);
+        }
+        
+        .btn-warning:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.35);
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+        
+        /* Highlight Box */
+        .highlight-box {
+            background: rgba(16, 185, 129, 0.04);
+            border-left: 4px solid var(--green);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+            border: 1px solid rgba(16, 185, 129, 0.15);
+        }
+        
+        /* Data Rights Section */
+        .rights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .right-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .right-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .right-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .right-title {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .right-description {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        /* Contact Section */
+        .contact-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .contact-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .contact-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        
+        .contact-details h4 {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 0.25rem;
+        }
+        
+        .contact-details p {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 260px;
+                position: fixed;
+                left: 0;
+                top: 0;
+                transform: translateX(-100%);
+                transition: transform .28s ease;
+                z-index: 120;
+            }
+            
+            body.show-sidebar .sidebar {
+                transform: translateX(0);
+            }
+            
+            .main {
+                margin-left: 0;
+            }
+            
+            .topbar {
+                left: 0;
+                right: 0;
+                position: sticky;
+                z-index: 95;
+            }
+            
+            .nav .label {
+                display: none;
+            }
+            
+            .privacy-header-updated,
+            .section {
+                padding: 1.5rem;
+            }
+            
+            .privacy-features,
+            .rights-grid,
+            .contact-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .privacy-header-updated,
+            .section {
+                padding: 1.25rem;
+            }
+            
+            .privacy-header-updated .privacy-title {
+                font-size: 1.5rem;
+            }
+            
+            .section-title {
+                font-size: 1.25rem;
+            }
+            
+            .info-list li {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+        }
+        
+        /* Site Footer */
+        .site-footer {
+            position: fixed;
+            bottom: 0;
+            left: 250px;
+            right: 0;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-top: 1px solid #eef2f6;
+            z-index: 75;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        @media (max-width: 768px) {
+            .site-footer {
+                left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Application Container -->
+    <div class="app">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="top">
+                <div class="logo">SafeSpace</div>
+                <button class="burger" id="burger">☰</button>
+            </div>
+
+            <nav class="nav" id="nav">
+                <button class="nav-item" data-name="Home"><span class="icon">🏠</span><span class="label">Home</span></button>
+                <button class="nav-item" data-name="Appointments"><span class="icon">📅</span><span class="label">Appointments</span></button>
+                <button class="nav-item" data-name="Messages"><span class="icon">✉️</span><span class="label">Messages</span></button>
+                <button class="nav-item active" data-name="Privacy"><span class="icon">🛡️</span><span class="label">Privacy & Security</span></button>
+            </nav>
+            <div class="bottom">
+                <div style="padding:10px">
+                    <div class="logged" style="margin-top:12px">Logged in as:<br><strong id="sidebarUserName">Student</strong></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="main">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="brand">
+                    <div class="title">SafeSpace</div>
+                    <div class="sub">Student Portal</div>
+                </div>
+
+                <div class="top-right" style="position:relative">
+                    <div style="text-align:right;margin-right:10px">
+                        <div style="font-weight:700;font-size:16px" id="greeting">Welcome to SafeSpace 👋</div>
+                        <div style="font-size:13px;opacity:0.95" id="datetime">Monday, Oct 16, 2023 — 10:30 AM</div>
+                    </div>
+
+                    <button class="icon-btn" id="notifBtn" title="Notifications">🔔</button>
+                    <button class="icon-btn" id="profileBtn" title="Profile" style="position:relative;padding:0;">
+                        <div class="avatar" id="userAvatar" style="width:60px;height:60px;flex-shrink:0;position:relative;">
+                            <span id="userAvatarText" style="font-size:20px;">S</span>
+                        </div>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <div class="content">
+                <!-- Privacy & Security Content -->
+                <div class="privacy-container">
+                    <!-- Privacy Header -->
+                    <div class="privacy-header-updated">
+                        <h2 class="privacy-title">Your Privacy Matters</h2>
+                        <p class="last-updated">Last updated: October 15, 2023</p>
+                        <p>SafeSpace respects your right to privacy and is committed to protecting the confidentiality of your personal and mental health information. This policy explains how your data is collected, processed, and protected while using the Student Portal.</p>
+                        
+                        <div class="privacy-features">
+                            <div class="feature-item">
+                                <div class="feature-header">
+                                    <div class="feature-icon">🔐</div>
+                                    <div class="feature-title">Data Secured</div>
+                                </div>
+                                <div class="feature-description">Your counseling data is transmitted and stored through Firebase's encrypted infrastructure, ensuring confidentiality and protection.</div>
+                            </div>
+                            <div class="feature-item">
+                                <div class="feature-header">
+                                    <div class="feature-icon">👁️</div>
+                                    <div class="feature-title">You're In Control</div>
+                                </div>
+                                <div class="feature-description">You may manage your account, review stored information, and request correction or deletion of your data in line with institutional policy.</div>
+                            </div>
+                            <div class="feature-item">
+                                <div class="feature-header">
+                                    <div class="feature-icon">📋</div>
+                                    <div class="feature-title">Compliant</div>
+                                </div>
+                                <div class="feature-description">SafeSpace follows the Philippine Data Privacy Act of 2012 (RA 10173) and Google's Privacy and Security Principles, ensuring that sensitive counseling records are handled with care and transparency.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data We Collect Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">🧍‍♂️</div>
+                            <div>
+                                <h3 class="section-title">Data We Collect</h3>
+                                <p class="section-subtitle">When you use the SafeSpace Student Portal, we collect and process the following information:</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <ul style="list-style-type: none; padding-left: 0;">
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">•</span>
+                                    <span><strong>Personal information</strong> such as Full Name, Student ID, and Email/Username</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">•</span>
+                                    <span><strong>Counseling messages and session details</strong> for mental health support</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">•</span>
+                                    <span><strong>Uploaded test results or records</strong> related to counseling sessions</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">•</span>
+                                    <span><strong>System-related data</strong> such as login activity and usage timestamps for security tracking</span>
+                                </li>
+                            </ul>
+                            
+                            <div class="highlight-box">
+                                <p>All collected information is used solely for counseling, academic, and administrative purposes in line with institutional policies.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Protection and Security Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">🔐</div>
+                            <div>
+                                <h3 class="section-title">Data Protection and Security</h3>
+                                <p class="section-subtitle">How we protect your sensitive information</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <ul style="list-style-type: none; padding-left: 0;">
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">✓</span>
+                                    <span>All student information is securely stored in <strong>Firebase's encrypted database</strong>, ensuring confidentiality and integrity.</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">✓</span>
+                                    <span>Data is encrypted <strong>in transit and at rest</strong> to prevent unauthorized access.</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">✓</span>
+                                    <span>Only <strong>authorized counselors and administrators</strong> can access your data for legitimate counseling and support purposes.</span>
+                                </li>
+                                <li style="padding: 0.75rem 0; display: flex; align-items: flex-start;">
+                                    <span style="color: var(--green); margin-right: 0.75rem;">✓</span>
+                                    <span>Automatic logout and authentication mechanisms protect your account when inactive.</span>
+                                </li>
+                            </ul>
+                            
+                            <div class="highlight-box">
+                                <p>SafeSpace follows <strong>Google's security standards</strong>, applying secure cloud storage and strict access controls.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Counseling Messages & Results Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">💬</div>
+                            <div>
+                                <h3 class="section-title">Counseling Messages & Results</h3>
+                                <p class="section-subtitle">Confidentiality of your mental health information</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <p>All counseling conversations and uploaded results are <strong>strictly confidential</strong>.</p>
+                            <p>These records are accessible only to the assigned counselor and authorized mental health staff.</p>
+                            <p>No counseling information is shared publicly or with third parties without your consent or legal authorization.</p>
+                            
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" id="viewMessagesBtn">
+                                    <i class="fas fa-comments"></i> View My Messages
+                                </button>
+                                <button class="btn btn-outline" id="downloadDataBtn">
+                                    <i class="fas fa-download"></i> Download My Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Your Rights Under RA 10173 Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">👁️</div>
+                            <div>
+                                <h3 class="section-title">Your Rights Under RA 10173</h3>
+                                <p class="section-subtitle">Philippine Data Privacy Act of 2012</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <p>Under the <strong>Philippine Data Privacy Act of 2012 (RA 10173)</strong>, students have the right to:</p>
+                            
+                            <div class="rights-grid">
+                                <div class="right-item">
+                                    <div class="right-icon">
+                                        <i class="fas fa-search"></i>
+                                    </div>
+                                    <div class="right-title">Access Information</div>
+                                    <div class="right-description">Access their personal information stored in the system</div>
+                                </div>
+                                
+                                <div class="right-item">
+                                    <div class="right-icon">
+                                        <i class="fas fa-edit"></i>
+                                    </div>
+                                    <div class="right-title">Request Correction</div>
+                                    <div class="right-description">Request correction of any inaccurate or outdated data</div>
+                                </div>
+                                
+                                <div class="right-item">
+                                    <div class="right-icon">
+                                        <i class="fas fa-ban"></i>
+                                    </div>
+                                    <div class="right-title">Withdraw Consent</div>
+                                    <div class="right-description">Withdraw consent for data processing, subject to university policies</div>
+                                </div>
+                                
+                                <div class="right-item">
+                                    <div class="right-icon">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div class="right-title">File Complaints</div>
+                                    <div class="right-description">File complaints or concerns to the Data Protection Officer (DPO) or the National Privacy Commission (NPC)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="highlight-box">
+                                <p>To exercise these rights, you may contact the university's DPO or guidance office.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Retention and Deletion Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">📋</div>
+                            <div>
+                                <h3 class="section-title">Data Retention and Deletion</h3>
+                                <p class="section-subtitle">How long we keep your information</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <p>Student counseling data is retained only for the duration necessary to fulfill academic and mental health purposes.</p>
+                            <p>After this period, data is securely deleted or anonymized according to institutional retention policies.</p>
+                            
+                            <div class="action-buttons">
+                                <button class="btn btn-outline" id="requestDeletionBtn">
+                                    <i class="fas fa-trash-alt"></i> Request Data Deletion
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accountability and Contact Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">⚖️</div>
+                            <div>
+                                <h3 class="section-title">Accountability and Contact</h3>
+                                <p class="section-subtitle">Who to contact for privacy concerns</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <p>All student data collected through SafeSpace is managed under the supervision of the <strong>Data Protection Officer (DPO)</strong> and system administrator.</p>
+                            <p>For privacy-related requests or questions, you may contact the designated DPO through official university channels.</p>
+                            
+                            <div class="contact-info">
+                                <div class="contact-item">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-user-shield"></i>
+                                    </div>
+                                    <div class="contact-details">
+                                        <h4>Data Protection Officer</h4>
+                                        <p>Contact through university administration</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="contact-item">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div class="contact-details">
+                                        <h4>Guidance Office</h4>
+                                        <p>Main campus, Administration Building</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="contact-item">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-envelope"></i>
+                                    </div>
+                                    <div class="contact-details">
+                                        <h4>Email Support</h4>
+                                        <p>privacy@safespace.edu</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Our Commitment Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <div class="section-icon">💚</div>
+                            <div>
+                                <h3 class="section-title">Our Commitment</h3>
+                                <p class="section-subtitle">Creating a safe, private, and supportive environment</p>
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <p>SafeSpace is designed to create a safe, private, and supportive environment for every student.</p>
+                            <p>We ensure that all personal and counseling information is handled with empathy, transparency, and integrity — because your trust and well-being matter most.</p>
+                            
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" id="learnMoreBtn">
+                                    <i class="fas fa-info-circle"></i> Learn More About SafeSpace
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="footer">
+                        <p>Need help with your privacy settings? Contact our support team at <a href="mailto:privacy@safespace.edu" style="color: var(--green); font-weight: 600;">privacy@safespace.edu</a></p>
+                        <p style="margin-top: 1rem;">© 2023 SafeSpace Counseling System. All rights reserved. Protecting mental health data with care.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Site Footer -->
+        <footer class="site-footer" role="contentinfo">
+            © 2023 SafeSpace | Student Counseling Portal
+        </footer>
+    </div>
+
+    <script>
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current date and time
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options) + ' — ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            
+            // Initialize navigation
+            initializeNavigation();
+            
+            // Initialize button functionality
+            initializeButtons();
+        });
+        
+        // Navigation functionality
+        function initializeNavigation() {
+            const burger = document.getElementById('burger');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (!burger || !sidebar) return;
+            
+            // Toggle sidebar function
+            const toggleSidebar = () => {
+                if (window.innerWidth <= 768) {
+                    document.body.classList.toggle('show-sidebar');
+                }
+            };
+
+            // Event listeners
+            burger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleSidebar();
+            });
+
+            // Close mobile sidebar when clicking outside
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth <= 768 && 
+                    document.body.classList.contains('show-sidebar') && 
+                    !sidebar.contains(e.target) && 
+                    !burger.contains(e.target)) {
+                    document.body.classList.remove('show-sidebar');
+                }
+            });
+
+            // Navigation button click handlers
+            const navMap = {
+                "Home": "student_home.html",
+                "Appointments": "student_appointment.html", 
+                "Messages": "student_message.html",
+                "Privacy": "student_privacy.html"
+            };
+
+            document.querySelectorAll('.nav .nav-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Close mobile sidebar if open
+                    if (window.innerWidth <= 768) {
+                        document.body.classList.remove('show-sidebar');
+                    }
+
+                    // Update active state
+                    document.querySelectorAll('.nav .nav-item').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Navigate to the target page
+                    const target = navMap[btn.dataset.name];
+                    if (target && target !== 'student_privacy.html') {
+                        setTimeout(() => {
+                            window.location.href = target;
+                        }, window.innerWidth <= 768 ? 100 : 0);
+                    }
+                });
+            });
+
+            // Global event handlers
+            window.addEventListener('keydown', (e) => { 
+                if (e.key === 'Escape') document.body.classList.remove('show-sidebar'); 
+            });
+            
+            window.addEventListener('resize', () => { 
+                if (window.innerWidth > 768) document.body.classList.remove('show-sidebar'); 
+            });
+        }
+        
+        // Button functionality
+        function initializeButtons() {
+            // View Messages Button
+            const viewMessagesBtn = document.getElementById('viewMessagesBtn');
+            if (viewMessagesBtn) {
+                viewMessagesBtn.addEventListener('click', function() {
+                    alert('Redirecting to your messages...');
+                    // In a real implementation, this would navigate to the messages page
+                    // window.location.href = 'student_message.html';
+                });
+            }
+            
+            // Download Data Button
+            const downloadDataBtn = document.getElementById('downloadDataBtn');
+            if (downloadDataBtn) {
+                downloadDataBtn.addEventListener('click', function() {
+                    alert('Preparing your data for download. This may take a few moments...');
+                    // In a real implementation, this would trigger a data export
+                });
+            }
+            
+            // Request Deletion Button
+            const requestDeletionBtn = document.getElementById('requestDeletionBtn');
+            if (requestDeletionBtn) {
+                requestDeletionBtn.addEventListener('click', function() {
+                    const confirmed = confirm('Are you sure you want to request deletion of your data? This action may impact your access to counseling services.');
+                    if (confirmed) {
+                        alert('Your data deletion request has been submitted. The guidance office will contact you to confirm.');
+                    }
+                });
+            }
+            
+            // Learn More Button
+            const learnMoreBtn = document.getElementById('learnMoreBtn');
+            if (learnMoreBtn) {
+                learnMoreBtn.addEventListener('click', function() {
+                    alert('SafeSpace is a confidential counseling platform designed to support student mental health and well-being. All services are provided by licensed counselors and mental health professionals.');
+                });
+            }
+            
+            // Notification Button
+            const notifBtn = document.getElementById('notifBtn');
+            if (notifBtn) {
+                notifBtn.addEventListener('click', function() {
+                    alert('You have no new notifications.');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

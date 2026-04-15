@@ -1,0 +1,1704 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Cropper.js Library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <!-- Material Icons for profile dropdown icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+  /* Profile dropdown styles (shared) */
+  .profile-dropdown{position:absolute;right:16px;top:56px;width:280px;min-width:310px;max-width:calc(100vw - 32px);background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(2,6,23,0.16);border:1px solid rgba(2,6,23,0.06);z-index:1200;overflow:hidden;color:#111827;font-size:14px}
+    .profile-dropdown .pd-head{display:flex;gap:16px;align-items:center;padding:18px 18px 14px 18px;border-bottom:1px solid #f1f4f7}
+    .pd-head .pd-avatar{width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid rgba(2,6,23,0.04);background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green)}
+    .pd-head .pd-meta{min-width:0}
+    .pd-head .pd-meta .pd-name{font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-head .pd-meta .pd-email{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .profile-dropdown .pd-list{padding:8px 0}
+    .profile-dropdown .pd-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid #f1f4f7;background:transparent;color:#111827;text-decoration:none;cursor:pointer}
+    .profile-dropdown .pd-item:first-of-type{border-top:0}
+    .profile-dropdown .pd-item:hover{background:#f8fafc}
+    .profile-dropdown .pd-item .pd-icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--green);font-size:16px}
+    .profile-dropdown .pd-item .pd-label{flex:1;font-weight:600}
+    .profile-dropdown .pd-item .pd-caret{color:rgba(0,0,0,0.4)}
+    .profile-dropdown .pd-footer{background:var(--green);color:#fff;padding:12px 16px;text-align:center;font-weight:800}
+    .profile-dropdown .pd-footer button{background:transparent;border:0;color:inherit;font-weight:800;cursor:pointer;width:100%}
+  
+  /* Notification dropdown styles */
+  .notification-badge{
+    position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 6px;border-radius:999px;display:none;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:12px;font-weight:700;box-shadow:0 6px 14px rgba(2,6,23,0.18);z-index:30}
+  .notification-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:360px;max-width:calc(100vw - 32px);background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(2,6,23,0.16);border:1px solid rgba(2,6,23,0.06);z-index:1200;overflow:hidden;color:#111827;font-size:14px;display:none}
+  .notification-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f1f4f7}
+  .notification-header h3{margin:0;font-size:16px;font-weight:800;color:#0f172a}
+  .notification-actions{display:flex;gap:12px}
+  .notification-actions button{background:transparent;border:0;color:#6b7280;cursor:pointer;font-weight:700;font-size:13px}
+  .notification-actions button:hover{color:#374151}
+  .notification-list{max-height:360px;overflow:auto;background:#fff}
+  .notification-empty{display:flex;gap:12px;align-items:center;flex-direction:column;padding:28px 16px;color:var(--muted)}
+  .notification-item{display:flex;gap:12px;padding:14px 16px;align-items:flex-start;border-bottom:1px solid #f5f7fa;cursor:pointer}
+  .notification-item.unread{background:#eef6ff}
+  .notification-icon{width:44px;height:44px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:#f3f4f6;color:var(--green);font-size:18px;flex-shrink:0}
+  .notification-icon.info{background:#e6f0ff;color:#1e40af}
+  .notification-icon.success{background:#ecfdf5;color:#047857}
+  .notification-icon.warning{background:#fff7ed;color:#b45309}
+  .notification-icon.alert{background:#fff1f2;color:#b91c1c}
+  .notification-content{flex:1}
+  .notification-title{font-weight:800;font-size:14px;margin-bottom:6px;color:#0f172a}
+  .notification-message{font-size:13px;color:#374151;line-height:1.35}
+  .notification-time{font-size:12px;color:#94a3b8;margin-top:8px}
+  .notification-footer{padding:12px;border-top:1px solid #f1f4f7;text-align:center;background:#fff}
+  .notification-footer button{background:transparent;border:0;color:#0f7a34;font-weight:800;padding:8px 12px;cursor:pointer}
+
+  /* Thin custom scrollbar for the dropdown list */
+  .notification-list::-webkit-scrollbar{width:10px}
+  .notification-list::-webkit-scrollbar-track{background:transparent}
+  .notification-list::-webkit-scrollbar-thumb{background:#e6eef6;border-radius:999px;border:3px solid transparent;background-clip:padding-box}
+ 
+  </style>
+  <script type="module">
+    import { watchAuth, showUserInfo, db } from "./main.js";
+    import { get, query, ref, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { fetchNotifications } from "./notifications-api.js";
+
+    let currentUserId = null;
+    
+    watchAuth(user => {
+      if (!user || user.isAnonymous || !user.email) {
+        // Clear any cached user data
+        currentUserId = null;
+        sessionStorage.clear();
+        window.location.replace("counselor_login.html");
+      } else {
+        // Check if this is a different user than before
+        if (currentUserId && currentUserId !== user.uid) {
+          // Clear cached data when switching users
+          sessionStorage.clear();
+          localStorage.removeItem('cachedUserInfo');
+          console.log('User switched, clearing cached data');
+        }
+        currentUserId = user.uid;
+        
+        // Force refresh user info
+        showUserInfo(user).catch(error => {
+          console.error('Error showing user info:', error);
+          // Fallback to basic display
+          const greetingEl = document.getElementById('greeting');
+          const sidebarEl = document.getElementById('sidebarUserName');
+          const avatarEl = document.getElementById('userAvatar');
+          if (greetingEl) greetingEl.textContent = 'Good Day, Counselor 👋';
+          if (sidebarEl) sidebarEl.textContent = 'Counselor';
+          if (avatarEl) avatarEl.textContent = 'C';
+        });
+        
+        // Load notifications for this user
+        loadNotifications(user.uid);
+        
+        // Wait for DOM to be ready before loading profile
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => {
+            loadCounselorProfile(user.uid);
+          });
+        } else {
+          setTimeout(() => {
+            loadCounselorProfile(user.uid);
+          }, 500);
+        }
+      }
+    });
+
+    // Function to load counselor profile from database
+    async function loadCounselorProfile(uid) {
+      try {
+        console.log('Loading counselor profile for UID:', uid);
+        const q = query(ref(db, "counselors"), orderByChild("uid"), equalTo(uid));
+        const qsnap = await get(q);
+        
+        if (qsnap.exists()) {
+          let counselorFound = false;
+          qsnap.forEach(child => {
+            const counselorData = child.val();
+            console.log('Counselor data found:', counselorData);
+            populateProfileForm(counselorData);
+            counselorFound = true;
+          });
+          
+          if (!counselorFound) {
+            console.warn('No valid counselor data in snapshot');
+            showProfileNotFound(uid);
+          }
+        } else {
+          console.log("No counselor profile found for this user UID:", uid);
+          showProfileNotFound(uid);
+        }
+      } catch (error) {
+        console.error("Error loading counselor profile:", error);
+        showProfileNotFound(uid, error.message);
+      }
+    }
+    
+    // Helper function to show profile not found message
+    function showProfileNotFound(uid, errorMsg = null) {
+      const profileName = document.getElementById('profileHeaderName');
+      if (profileName) {
+        profileName.textContent = errorMsg ? 'Profile Load Error' : 'Profile Not Found';
+      }
+      
+      // Clear form fields
+      clearFormFields();
+      
+      console.log('Profile not found for UID:', uid, errorMsg ? 'Error:' : '', errorMsg || '');
+    }
+    
+    // Helper function to clear form fields
+    function clearFormFields() {
+      const fieldIds = ['firstNameField', 'lastNameField', 'emailField', 'usernameField', 'campusField', 'collegeField', 'phoneField'];
+      fieldIds.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.value = '';
+        }
+      });
+    }
+
+    // Function to populate the profile form with database data
+    function populateProfileForm(data) {
+      // Profile header - prioritize full name for profile display
+      const profileName = document.getElementById('profileHeaderName');
+      if (profileName) {
+        if (data.first_name && data.last_name) {
+          profileName.textContent = `${data.first_name} ${data.last_name}`;
+        } else if (data.name) {
+          profileName.textContent = data.name;
+        } else if (data.username) {
+          profileName.textContent = data.username;
+        } else {
+          profileName.textContent = 'Counselor Profile';
+        }
+      }
+
+      // Wait for DOM to be ready, then populate fields
+      setTimeout(() => {
+        // Populate form fields directly by ID with multiple field name options
+        const fieldMappings = {
+          firstNameField: data.first_name || data.firstName || '',
+          lastNameField: data.last_name || data.lastName || '',
+          emailField: data.email_address || data.email || '',
+          usernameField: data.username || '',
+          campusField: data.campus || '',
+          collegeField: data.college || '',
+          phoneField: data.phone_number || data.phone || data.phoneNumber || ''
+        };
+        
+        Object.keys(fieldMappings).forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            field.value = fieldMappings[fieldId];
+          }
+        });
+      }, 100);
+
+      // Update profile image if available - check multiple possible field names
+      const profileImg = document.getElementById('profileImage');
+      if (profileImg) {
+        // Use the correct field name from database: photo_url
+        const imageUrl = data.photo_url;
+        
+        console.log('Looking for profile image in data:', {
+          photo_url: data.photo_url,
+          selectedImage: imageUrl
+        });
+        
+        if (imageUrl) {
+          console.log('Setting profile image to:', imageUrl);
+          profileImg.src = imageUrl;
+        } else if (data.first_name && data.last_name) {
+          // If no profile image, use initials as backup
+          const initials = `${data.first_name.charAt(0)}${data.last_name.charAt(0)}`.toUpperCase();
+          profileImg.alt = initials;
+          console.log('No profile image found, using initials:', initials);
+        }
+      }
+
+      // Update status badges if available
+      if (data.status) {
+        const statusBadge = document.querySelector('.bg-green-100');
+        if (statusBadge) {
+          statusBadge.textContent = data.status;
+        }
+      }
+
+      if (data.counselor_id) {
+        const idBadge = document.querySelector('.bg-purple-100');
+        if (idBadge) {
+          idBadge.textContent = `ID: ${data.counselor_id}`;
+        }
+      }
+    }
+
+    // Notification functions
+    async function loadNotifications(uid) {
+      try {
+        // Attempt to fetch notifications from Firebase via the notifications API module.
+        let notifications = [];
+        try {
+          notifications = await fetchNotifications(uid);
+        } catch (err) {
+          console.warn('fetchNotifications failed, falling back to mock data', err);
+          notifications = [];
+        }
+
+        // Fallback mock data when no notifications available from DB
+        if (!notifications || notifications.length === 0) {
+          notifications = [
+            { id: 1, type: 'info', title: 'New Appointment Request', message: 'John Doe requested an appointment for tomorrow at 2:00 PM', time: '5 minutes ago', unread: true },
+            { id: 2, type: 'success', title: 'Appointment Confirmed', message: 'Your appointment with Jane Smith has been confirmed', time: '1 hour ago', unread: true },
+            { id: 3, type: 'warning', title: 'Schedule Change', message: 'Your 3:00 PM appointment has been rescheduled to 4:00 PM', time: '2 hours ago', unread: false },
+            { id: 4, type: 'alert', title: 'Urgent: Student Crisis', message: 'A student has marked their session as urgent - please review', time: '1 day ago', unread: false }
+          ];
+        }
+
+        displayNotifications(notifications);
+        updateNotificationBadge(notifications);
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    }
+
+    function displayNotifications(notifications) {
+      const notificationList = document.getElementById('notificationList');
+      if (!notificationList) return;
+
+      if (notifications.length === 0) {
+        notificationList.innerHTML = `
+          <div class="notification-empty">
+            <i class="material-icons">notifications_none</i>
+            <div>No notifications</div>
+          </div>
+        `;
+        return;
+      }
+
+      notificationList.innerHTML = notifications.map(notification => `
+        <div class="notification-item ${notification.unread ? 'unread' : ''}" data-id="${notification.id}">
+          <div class="notification-icon ${notification.type}">
+            <i class="material-icons">${getNotificationIcon(notification.type)}</i>
+          </div>
+          <div class="notification-content">
+            <div class="notification-title">${notification.title}</div>
+            <div class="notification-message">${notification.message}</div>
+            <div class="notification-time">${notification.time}</div>
+          </div>
+        </div>
+      `).join('');
+
+      // Add click handlers to notification items
+      notificationList.querySelectorAll('.notification-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const notificationId = this.getAttribute('data-id');
+          markAsRead(notificationId);
+          this.classList.remove('unread');
+          updateNotificationBadge(notifications.filter(n => n.id != notificationId && n.unread));
+        });
+      });
+    }
+
+    function getNotificationIcon(type) {
+      const icons = {
+        'info': 'info',
+        'success': 'check_circle',
+        'warning': 'warning',
+        'alert': 'error'
+      };
+      return icons[type] || 'notifications';
+    }
+
+    function updateNotificationBadge(notifications) {
+      const badge = document.getElementById('notificationBadge');
+      const unreadCount = notifications.filter(n => n.unread).length;
+      
+      if (badge) {
+        if (unreadCount > 0) {
+          badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function markAsRead(notificationId) {
+      // In a real app, you would update the notification status in Firebase
+      console.log('Marking notification as read:', notificationId);
+    }
+
+    function markAllAsRead() {
+      // In a real app, you would update all notifications in Firebase
+      const notifications = document.querySelectorAll('.notification-item.unread');
+      notifications.forEach(item => {
+        item.classList.remove('unread');
+        const notificationId = item.getAttribute('data-id');
+        markAsRead(notificationId);
+      });
+      
+      // Update badge
+      const badge = document.getElementById('notificationBadge');
+      if (badge) {
+        badge.style.display = 'none';
+      }
+    }
+
+    function clearAllNotifications() {
+      // In a real app, you would remove notifications from Firebase
+      const notificationList = document.getElementById('notificationList');
+      if (notificationList) {
+        notificationList.innerHTML = `
+          <div class="notification-empty">
+            <i class="material-icons">notifications_none</i>
+            <div>No notifications</div>
+          </div>
+        `;
+      }
+      
+      // Update badge
+      const badge = document.getElementById('notificationBadge');
+      if (badge) {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Expose notification functions globally
+    window.markAllAsRead = markAllAsRead;
+    window.clearAllNotifications = clearAllNotifications;
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SafeSpace — Counselor Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ====== ROOT VARIABLES & BASE STYLES ====== */
+    :root {
+      /* Color Palette */
+      --green: #0f7a34;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --bg: #f4f6fb;
+      
+      /* Shadows & Elevation */
+      --card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+      --card-elev-1: 0 10px 30px rgba(2,6,23,0.08);
+      --card-elev-2: 0 20px 60px rgba(2,6,23,0.12);
+      
+      /* Layout Variables */
+      --radius: 10px;
+      --sidebar-width: 250px;
+      --collapsed-width: 80px;
+      --topbar-height: 64px;
+      --gap: 16px;
+      --content-padding: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: #111;
+    }
+
+    /* Profile Picture Cropping Styles */
+    #cropModal {
+      backdrop-filter: blur(4px);
+    }
+    
+    #cropContainer {
+      touch-action: none;
+      user-select: none;
+    }
+    
+    #cropImage {
+      cursor: move;
+      max-width: none;
+      max-height: none;
+    }
+    
+    /* Circular Cropper Styles */
+    .cropper-crop-box,
+    .cropper-view-box {
+      border-radius: 50%;
+    }
+    
+    .cropper-view-box {
+      box-shadow: 0 0 0 1px #39f;
+      outline: 0;
+    }
+    
+    .cropper-face {
+      background-color: inherit;
+    }
+    
+    /* Profile Image Circular Display */
+    #profileImage {
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    /* Custom Range Slider Styles */
+    #zoomSlider {
+      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #e5e7eb 100%);
+    }
+    
+    #zoomSlider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    #zoomSlider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ====== SIDEBAR STYLES ====== */
+    .sidebar {
+      width: 250px;
+      background: #f0f3f6;
+      border-right: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      z-index: 40;
+    }
+
+    .sidebar .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 20px;
+      background: var(--green);
+      color: #fff;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 20px;
+    }
+
+    .burger {
+      background: transparent;
+      border: 0;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 6px;
+      z-index: 120;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+    }
+
+    /* ====== NAVIGATION STYLES ====== */
+    .nav {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .nav button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 10px;
+      border-radius: 8px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      color: #1f2937;
+      font-weight: 400;
+      min-height: 44px;
+    }
+
+    .nav .label {
+      font-size: 15px;
+    }
+
+    .nav button.active {
+      background: rgba(15,122,52,0.08);
+      color: var(--green);
+    }
+
+    .nav .icon {
+      width: 56px;
+      height: 48px;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(14px, 2.6vw, 26px);
+      line-height: 1;
+    }
+
+    /* ====== SIDEBAR COLLAPSE STYLES ====== */
+    body.collapsed .sidebar {
+      width: 80px;
+    }
+
+    body.collapsed .nav .icon {
+      width: 56px;
+      font-size: 26px;
+      justify-content: center;
+    }
+
+    body.collapsed .nav button {
+      justify-content: center;
+      padding: 12px 6px;
+    }
+
+    body.collapsed .nav button .label {
+      display: none;
+    }
+
+    body.collapsed .sidebar .bottom .logged {
+      display: none;
+    }
+
+    body.collapsed .sidebar .top .logo {
+      display: none;
+    }
+
+    .sidebar .bottom {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .logged {
+      font-size: 13px;
+      color: #374151;
+    }
+
+    /* Footer navigation collapsed styles */
+    body.collapsed .sidebar .bottom .nav-item .label {
+      display: none;
+    }
+
+    body.collapsed .sidebar .bottom .nav-item {
+      justify-content: center;
+      padding: 12px 6px;
+      gap: 0;
+    }
+
+    body.collapsed .sidebar .bottom .nav-item .icon {
+      width: 56px;
+      font-size: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ====== MAIN CONTENT AREA ====== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 35px 32px;
+      background: var(--green);
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--topbar-height);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand .title {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .brand .sub {
+      font-size: 13px;
+      opacity: 0.95;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: 0;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      min-height: 44px;
+      padding: 10px;
+      position: relative;
+    }
+
+    .avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+    }
+
+    /* ====== CONTENT GRID & LAYOUT ====== */
+    .content {
+      padding: var(--content-padding);
+      padding-top: calc(var(--topbar-height) + 6px);
+      padding-bottom: calc(56px + 20px);
+      transition: padding .2s ease;
+    }
+
+    /* Responsive */
+    @media(max-width:1000px){
+      .grid{grid-template-columns:repeat(8,1fr)}
+      .appointments,.calendar{grid-column:span 8; grid-row: span 1;}
+      .reminders{grid-column:span 8}
+      .events{grid-column:span 8}
+    }
+    @media(max-width:720px){
+      /* On small screens sidebar becomes an off-canvas panel.
+         It is hidden by default and toggled with the burger (see JS change below). */
+      .sidebar{
+        width:260px; /* panel width when open */
+        position:fixed;
+        left:0;
+        top:0;
+        height:100vh;
+        transform:translateX(-100%);
+        transition:transform .28s ease;
+        box-shadow:0 12px 40px rgba(2,6,23,0.12);
+        background:#f0f3f6;
+      }
+      /* when the body has .show-sidebar the off-canvas becomes visible */
+      body.show-sidebar .sidebar{ transform:translateX(0); }
+
+      /* make sure content isn't overlapped when sidebar is fixed/hidden */
+      .main{ margin-left:0; }
+      .nav button .label{display:none}
+      .brand .title{font-size:20px}
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .card{padding:12px}
+      .appointments,.calendar{grid-column:span 6; grid-row: span 1;}
+      .reminders,.events{grid-column:span 6}
+    }
+
+    /* FullCalendar styles removed */
+
+    /* --- Phone-specific responsive overrides (mobile-first tweaks) --- */
+    @media (max-width:480px){
+      /* Hide desktop sidebar and make topbar compact */
+      .sidebar { display:none !important; }
+      .main{ margin-left:0; }
+      .topbar {
+        padding:10px 14px;
+        height:56px;
+        position:fixed;
+        left:0; right:0; top:0;
+        z-index:80;
+      }
+      .brand .title{ font-size:18px; }
+      .brand .sub{ display:none; }
+
+      /* Content area: leave space for fixed topbar and bottom nav */
+      .content {
+        padding:12px;
+        padding-top: calc(56px + 12px);
+        padding-bottom: 86px; /* room for bottom nav */
+      }
+
+      /* Remove greetings on phone (topbar + greeting card) */
+      #greeting, #datetime, .greeting-card { display: none !important; }
+
+      /* Hide Messages nav item on phone */
+      .nav .nav-item[data-name="Messages"], .bottom-nav .nav-item[data-name="Messages"] { display: none !important; }
+
+      /* Bottom navigation (mobile) */
+      .bottom-nav{
+        display:flex;
+        position:fixed;
+        left:0; right:0; bottom:0;
+        height:72px;
+        background:#fff;
+        box-shadow:0 -8px 24px rgba(2,6,23,0.08);
+        z-index:90;
+        gap:0;
+        justify-content:space-around;
+        align-items:center;
+        padding:6px 8px;
+      }
+      .bottom-nav .nav-item{ flex:1; display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;border-radius:8px;background:transparent;border:0;color:#374151;font-weight:400; }
+      .bottom-nav .nav-item .icon{ font-size:20px; line-height:1; }
+      .bottom-nav .nav-item .label{ font-size:11px; color:#6b7280; }
+      .bottom-nav .nav-item.active{ color:var(--green); }
+    }
+    /* end of mobile rules */
+
+    /* Responsive overrides (mobile-first, safe defaults) */
+    :root{
+      --sidebar-width:250px;
+      --collapsed-width:80px;
+      --topbar-height:64px;
+      --gap:16px;
+      --content-padding:16px;
+    }
+
+    /* Make typography scale a bit */
+    html { font-size: 15px; }
+    @media (min-width:1200px){ html { font-size:16px; } }
+    @media (max-width:360px){ html { font-size:14px; } }
+
+    /* Ensure the burger is always reachable and clickable */
+    .burger{ z-index: 120; position: relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:8px; }
+    .sidebar .top .burger{ margin:0; }
+
+    /* Main responsive grid rules */
+    /* reduce default extra offset so greeting card is closer to top */
+    .content{ padding: var(--content-padding); padding-top: calc(var(--topbar-height) + 6px); transition: padding .2s ease; }
+
+    /* Sidebar behavior */
+    @media (min-width:721px){
+      .sidebar{ position:fixed; left:0; top:0; height:100vh; width:var(--sidebar-width); z-index:80; transition:width .18s ease, transform .25s ease; }
+      body.collapsed .sidebar{ width: var(--collapsed-width); }
+      .main{ margin-left: var(--sidebar-width); transition:margin-left .18s ease; }
+      body.collapsed .main{ margin-left: var(--collapsed-width); }
+      .topbar{ position:fixed; left: var(--sidebar-width); right:0; top:0; height:var(--topbar-height); z-index:85; transition:left .18s ease; }
+      body.collapsed .topbar{ left: var(--collapsed-width); }
+      .content{ padding-top: calc(var(--topbar-height) + 12px); }
+    }
+
+    /* Off-canvas for small screens */
+    @media (max-width:720px){
+      .sidebar{ width:260px; position:fixed; left:0; top:0; transform:translateX(-100%); transition:transform .28s ease; z-index:120; }
+      body.show-sidebar .sidebar{ transform: translateX(0); }
+      .main{ margin-left:0; }
+      .topbar{ left:0; right:0; position:sticky; z-index:95; }
+      .nav .label{ display:none; } /* show icon only on narrow screens */
+    }
+
+    /* Improve touch targets */
+    .nav button, .nav .nav-item, .icon-btn, .burger { min-height:44px; padding:10px; }
+    .nav .icon{ width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center; }
+
+    /* Accessibility: visible focus states */
+    button:focus, .nav button:focus, .icon-btn:focus { outline:3px solid rgba(15,122,52,0.12); outline-offset:2px; }
+
+    /* Utility: make images/icons scale */
+    .icon, .avatar { font-size: clamp(14px, 2.6vw, 26px); }
+
+    /* small polish: reduce spacing on very small screens */
+    @media (max-width:360px){
+      :root{ --gap:10px; --content-padding:12px; --topbar-height:56px; }
+      .brand .title{ font-size:18px; }
+    }
+
+    /* End responsive overrides */
+
+    /* Footer: fixed and visible above content, responsive */
+    .site-footer{
+      position:fixed;
+      bottom:0;
+      left:var(--sidebar-width);
+      right:0;
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+      border-top:1px solid #eef2f6;
+      z-index:75;
+      font-size:13px;
+      color:#6b7280;
+    }
+
+    /* Ensure main content doesn't hide behind footer */
+    .content{ padding-bottom: calc(56px + 20px); }
+
+    /* On small screens the sidebar is hidden so footer should span full width */
+    @media (max-width:720px){
+      .site-footer{ left:0; }
+    }
+
+    /* keep room for very small screens / bottom-nav */
+    @media (max-width:480px){
+      .site-footer{ height:64px; }
+      .content{ padding-bottom: calc(64px + 20px); }
+    }
+  </style>
+  <!-- Mobile bottom nav (renders only on phones) -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Mobile navigation" style="display:none"></nav>
+  </head>
+  <body>
+    <!-- ====== MAIN APPLICATION CONTAINER ====== -->
+    <div class="app">
+      <!-- ====== SIDEBAR NAVIGATION ====== -->
+      <aside class="sidebar">
+      <div class="top">
+        <div class="logo">SafeSpace</div>
+        <button class="burger" id="burger">☰</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item " data-name="Home"><span class="icon">🏠</span><span class="label">Home</span></button>
+        <button class="nav-item" data-name="Appointments"><span class="icon">📅</span><span class="label">Appointments</span></button>
+        <button class="nav-item" data-name="Students"><span class="icon">🎓</span><span class="label">Students</span></button>
+        <button class="nav-item" data-name="Messages"><span class="icon">✉️</span><span class="label">Messages</span></button>
+       <button class="nav-item" data-name="Settings"><span class="icon">⚙️</span><span class="label">Settings</span></button>
+      </nav>
+      <div class="bottom">
+        <div style="padding:10px">
+          <div class="logged" style="margin-top:12px">Logged in as:<br><strong id="sidebarUserName">Counselor</strong></div>
+        </div>
+      </div>
+    </aside>
+
+      <!-- ====== MAIN CONTENT AREA ====== -->
+      <div class="main">
+        <!-- ====== TOP BAR ====== -->
+        <header class="topbar">
+        <div class="brand">
+          <div class="title">SafeSpace</div>
+          <div class="sub">Counselor Portal</div>
+        </div>
+
+        <div class="top-right" style="position:relative">
+          <div style="text-align:right;margin-right:10px">
+            <div style="font-weight:700;font-size:16px" id="greeting">Good Morning, Counselor 👋</div>
+            <div style="font-size:13px;opacity:0.95" id="datetime">Sunday, Sept 7, 2025 — 06:45 AM</div>
+          </div>
+
+          <button class="icon-btn" id="notifBtn" title="Notifications" style="position:relative;">
+            🔔
+            <div id="notificationBadge" class="notification-badge" style="display:none">3</div>
+          </button>
+          
+          <!-- Notification dropdown -->
+          <div id="notificationDropdown" class="notification-dropdown" aria-hidden="true">
+            <div class="notification-header">
+              <h3>Notifications</h3>
+              <div class="notification-actions">
+                <button id="markAllReadBtn">Mark all read</button>
+                <button id="clearAllBtn">Clear all</button>
+              </div>
+            </div>
+            <div class="notification-list" id="notificationList">
+              <!-- Notifications will be populated here -->
+            </div>
+            <div class="notification-footer">
+              <button id="viewAllNotifications">View all notifications</button>
+            </div>
+          </div>
+
+          <button class="icon-btn" id="profileBtn" title="Profile" style="position:relative;padding:0;">
+            <div class="avatar" id="userAvatar" style="width:60px;height:60px;flex-shrink:0;position:relative;">
+              <img id="userAvatarImg" src="" alt="Profile" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+              <span id="userAvatarText" style="font-size:20px;">CJ</span>
+              <div style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                <span style="font-size:10px;color:#333;font-weight:bold;">v</span>
+              </div>
+            </div>
+          </button>
+          <!-- Profile dropdown menu (styled) -->
+          <div id="profileDropdown" class="profile-dropdown" aria-hidden="true" style="display:none;">
+              <div class="pd-head">
+                <div class="pd-avatar">
+                  <img id="profileDropdownAvatar" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+                  <span id="profileDropdownAvatarText" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-weight:800;color:var(--green)"></span>
+                </div>
+                <div class="pd-meta">
+                  <div id="profileDropdownName" class="pd-name">Hi, RSU SAFESPACE</div>
+                  <div id="profileDropdownEmail" class="pd-email">rsusafespace@gmail.com</div>
+                </div>
+              </div>
+
+              <div style="padding:8px 6px;display:flex;flex-direction:column;gap:6px">
+                <button id="viewAccountLink" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">person</i>
+                    <span style="flex:1;text-align:left">Manage your profile</span>
+                </button>
+                <button id="settingsBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">settings</i>
+                    <span style="flex:1;text-align:left">Settings &amp; privacy</span>
+                    <i class="material-icons icon" style="font-size:16px;opacity:0.7;">chevron_right</i>
+                </button>
+                <button id="dropdownLogoutBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;color:#111;font-weight:600">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;color:#ef4444">logout</i>
+                    <span style="flex:1;text-align:left">Log Out</span>
+                </button>
+              </div>
+          </div>
+        </div>
+      </header>
+
+        <!-- ====== MAIN CONTENT ====== -->
+        <div class="content">
+          <!-- Main content area is now empty - sidebar and topbar are preserved -->
+        </div>
+
+    <!-- Footer -->
+    <!-- visible, fixed footer -->
+    <footer class="site-footer" role="contentinfo">
+      © 2025 SafeSpace | Counseling Management System
+    </footer>
+
+    <!-- Confirmation Modal -->
+     <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:3000">
+    <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:92%;box-shadow:0 12px 40px rgba(2,6,23,0.2)">
+      <h3 id="confirmModalTitle" style="margin:0 0 8px 0;font-size:16px;font-weight:700">Confirm</h3>
+      <div id="confirmModalMessage" style="font-size:15px;margin-bottom:12px;color:#111">"Are you sure you want to change your password? This action cannot be undone."</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="confirmCancelBtn" style="background:#6c757d;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button id="confirmOkBtn" style="background:#00723f;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Confirm</button>
+      </div>
+    </div>
+  </div>
+      
+  <script type="module">
+    // ====== IMPORTS & GLOBAL SETUP ======
+    import * as db from './main.js';
+    
+    // Attach Firebase helpers to window for global access
+    window.db = db;
+
+    // ====== UTILITY FUNCTIONS ======
+    async function getCounselorId() {
+      try {
+        const user = await db.ensureAuth();
+        if (user && user.uid) return user.uid;
+      } catch (e) {
+        console.warn('ensureAuth failed', e);
+      }
+      return localStorage.getItem('counselorId') || null;
+    }
+
+    // ====== INITIALIZATION ======
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeNavigation();
+      initializeNotifications();
+    });
+ 
+  const b = document.getElementById('burger'), s = document.querySelector('.sidebar');
+  if (b && s) {
+    const KEY = 'sidebarCollapsed';
+    if (localStorage.getItem(KEY) === '1') document.body.classList.add('collapsed');
+
+    const toggle = () => {
+      if (window.innerWidth <= 720) document.body.classList.toggle('show-sidebar');
+      else localStorage.setItem(KEY, document.body.classList.toggle('collapsed') ? '1' : '0');
+    };
+
+    b.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+
+    document.addEventListener('click', e => {
+      if (window.innerWidth <= 720 && document.body.classList.contains('show-sidebar') && !s.contains(e.target) && !b.contains(e.target)) {
+        document.body.classList.remove('show-sidebar');
+      }
+    });
+
+      // Navigation functionality
+      const navMap = {
+        "Home": "counselor_home.html",
+        "Appointments": "counselor_appointment.html", 
+        "Students": "counselor_student.html",
+        "Messages": "counselor_message.html",
+
+        "Settings": "counselor_setting.html"
+      };
+
+      document.querySelectorAll('.nav .nav-item').forEach(n => {
+        n.addEventListener('click', (e) => {
+          e.preventDefault();
+          
+          // Close sidebar on mobile
+          if (window.innerWidth <= 720) document.body.classList.remove('show-sidebar');
+          
+          // Navigate to target page
+          const target = navMap[n.dataset.name];
+          if (target) {
+            setTimeout(() => {
+              window.location.href = target;
+            }, window.innerWidth <= 720 ? 100 : 0);
+          }
+        });
+      });    window.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('show-sidebar'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 720) document.body.classList.remove('show-sidebar'); });
+  }
+    // ====== NAVIGATION INITIALIZATION ======
+    function initializeNavigation() {
+      const burger = document.getElementById('burger');
+      const sidebar = document.querySelector('.sidebar');
+      
+      if (!burger || !sidebar) return;
+      
+      const STORAGE_KEY = 'sidebarCollapsed';
+      
+      // Restore collapsed state
+      if (localStorage.getItem(STORAGE_KEY) === '1') {
+        document.body.classList.add('collapsed');
+      }
+
+      // Toggle sidebar function
+      const toggleSidebar = () => {
+        if (window.innerWidth <= 720) {
+          document.body.classList.toggle('show-sidebar');
+        } else {
+          const isCollapsed = document.body.classList.toggle('collapsed');
+          localStorage.setItem(STORAGE_KEY, isCollapsed ? '1' : '0');
+        }
+      };
+
+      // Event listeners
+      burger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSidebar();
+      });
+
+      // Close mobile sidebar when clicking outside
+      document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 720 && 
+            document.body.classList.contains('show-sidebar') && 
+            !sidebar.contains(e.target) && 
+            !burger.contains(e.target)) {
+          document.body.classList.remove('show-sidebar');
+        }
+      });
+
+      // Navigation button click handlers
+      const navMap = {
+        "Home": "counselor_home.html",
+        "Appointments": "counselor_appointment.html", 
+        "Students": "counselor_student.html",
+        "Messages": "counselor_message.html",
+        "Settings": "counselor_setting.html"
+      };
+
+      document.querySelectorAll('.nav .nav-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          
+          // Close mobile sidebar if open
+          if (window.innerWidth <= 720) {
+            document.body.classList.remove('show-sidebar');
+          }
+
+          // Update active state
+          document.querySelectorAll('.nav .nav-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          // Navigate to the target page
+          const target = navMap[btn.dataset.name];
+          if (target) {
+            setTimeout(() => {
+              window.location.href = target;
+            }, window.innerWidth <= 720 ? 100 : 0);
+          }
+        });
+      });
+
+      // Global event handlers
+      window.addEventListener('keydown', (e) => { 
+        if (e.key === 'Escape') document.body.classList.remove('show-sidebar'); 
+      });
+      
+      window.addEventListener('resize', () => { 
+        if (window.innerWidth > 720) document.body.classList.remove('show-sidebar'); 
+      });
+    }
+
+    // ====== NOTIFICATION FUNCTIONALITY ======
+    function initializeNotifications() {
+      const notifBtn = document.getElementById('notifBtn');
+      const notifDropdown = document.getElementById('notificationDropdown');
+      const profileBtn = document.getElementById('profileBtn');
+      const profileDropdown = document.getElementById('profileDropdown');
+      const markAllReadBtn = document.getElementById('markAllReadBtn');
+      const clearAllBtn = document.getElementById('clearAllBtn');
+      const viewAllNotifications = document.getElementById('viewAllNotifications');
+
+      if (!notifBtn || !notifDropdown) return;
+
+      // Toggle notification dropdown
+      function toggleNotificationDropdown(show) {
+        if (!notifDropdown) return;
+        const willShow = typeof show === 'boolean' ? show : notifDropdown.style.display === 'none';
+        
+        // Close profile dropdown if opening notifications
+        if (willShow && profileDropdown) {
+          profileDropdown.style.display = 'none';
+          profileDropdown.setAttribute('aria-hidden', 'true');
+        }
+        
+        notifDropdown.style.display = willShow ? 'block' : 'none';
+        notifDropdown.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+      }
+
+      // Notification button click handler
+      notifBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleNotificationDropdown(notifDropdown.style.display === 'none');
+      });
+
+      // Mark all as read
+      if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.markAllAsRead === 'function') {
+            window.markAllAsRead();
+          }
+        });
+      }
+
+      // Clear all notifications
+      if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.clearAllNotifications === 'function') {
+            window.clearAllNotifications();
+          }
+        });
+      }
+
+      // View all notifications
+      if (viewAllNotifications) {
+        viewAllNotifications.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggleNotificationDropdown(false);
+          // Navigate to notifications page or show all notifications
+          console.log('View all notifications clicked');
+          // window.location.href = 'counselor_notifications.html';
+        });
+      }
+
+      // Close dropdowns when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+          toggleNotificationDropdown(false);
+        }
+      });
+
+      // Close on escape key
+      document.addEventListener('keydown', (e) => { 
+        if (e.key === 'Escape') toggleNotificationDropdown(false); 
+      });
+    }
+ 
+    // ====== MODAL ALERT FUNCTIONS ======
+    function showModalAlert(modalId, message, opts = {}) {
+      const alertIdMap = {
+        'timeSlotModal': 'timeSlotAlert'
+      };
+      
+      const alertId = alertIdMap[modalId] || modalId + 'Alert';
+      const element = document.getElementById(alertId);
+      
+      if (!element) {
+        // Fallback to browser alert if element missing
+        window.alert(message);
+        return;
+      }
+      
+      element.textContent = message;
+      element.style.display = 'block';
+      
+      // Style based on type
+      if (opts.type === 'success') {
+        element.style.background = '#e6ffed';
+        element.style.color = '#0f5132';
+        element.style.border = '1px solid #c7f0d6';
+      } else {
+        element.style.background = '#fff5f5';
+        element.style.color = '#842029';
+        element.style.border = '1px solid #f5c2c7';
+      }
+      
+      // Auto-hide unless persistent
+      if (!opts.persistent) {
+        clearTimeout(element._hideTimer);
+        element._hideTimer = setTimeout(() => {
+          element.style.display = 'none';
+        }, opts.timeout || 4000);
+      }
+    }
+    
+    // Expose globally for other scripts
+    window.showModalAlert = showModalAlert;
+   
+    function clearModalAlertById(modalId) {
+      const alertIdMap = {'timeSlotModal': 'timeSlotAlert'};
+      const alertId = alertIdMap[modalId] || modalId + 'Alert';
+      const element = document.getElementById(alertId);
+      
+      if (element) {
+        element.style.display = 'none';
+        element.textContent = '';
+        clearTimeout(element._hideTimer);
+      }
+    }
+
+    // ====== CONFIRMATION MODAL FUNCTION ======
+    function showConfirm(message, opts = {}) {
+      const modal = document.getElementById('confirmModal');
+      const msgEl = document.getElementById('confirmModalMessage');
+      const titleEl = document.getElementById('confirmModalTitle');
+      const okBtn = document.getElementById('confirmOkBtn');
+      const cancelBtn = document.getElementById('confirmCancelBtn');
+      
+      // Fallback to native confirm if modal elements not found
+      if (!modal || !msgEl || !okBtn || !cancelBtn) {
+        return Promise.resolve(window.confirm(message));
+      }
+
+      // Set content
+      msgEl.textContent = message || '';
+      if (titleEl) titleEl.textContent = opts.title || 'Confirm';
+      okBtn.textContent = opts.okText || 'Yes';
+      cancelBtn.textContent = opts.cancelText || 'No';
+
+      // Button styling configuration
+      const okBg = opts.okBg || '#0f6a56';
+      const okHover = opts.okHover || '#0c5a49';
+      const okText = opts.okColor || '#ffffff';
+      const radius = '12px';
+
+      // Style OK button
+      Object.assign(okBtn.style, {
+        background: okBg,
+        color: okText,
+        border: '0',
+        padding: '10px 16px',
+        borderRadius: radius,
+        cursor: 'pointer',
+        fontWeight: '700',
+        minWidth: '96px',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.10)'
+      });
+      
+      // OK button interactions
+      okBtn.onmouseenter = () => okBtn.style.background = okHover;
+      okBtn.onmouseleave = () => okBtn.style.background = okBg;
+      okBtn.onfocus = () => okBtn.style.outline = '3px solid rgba(15,106,86,0.25)';
+      okBtn.onblur = () => okBtn.style.outline = '';
+
+  cancelBtn.style.background = '#f3f4f6';
+  cancelBtn.style.color = '#111827';
+  cancelBtn.style.border = '1px solid #e5e7eb';
+  cancelBtn.style.padding = '10px 16px';
+  cancelBtn.style.borderRadius = radius;
+  cancelBtn.style.cursor = 'pointer';
+  cancelBtn.style.fontWeight = '700';
+  cancelBtn.style.minWidth = '96px';
+      cancelBtn.onmouseenter = () => cancelBtn.style.background = '#e5e7eb';
+      cancelBtn.onmouseleave = () => cancelBtn.style.background = '#f3f4f6';
+      cancelBtn.onfocus = () => cancelBtn.style.outline = '3px solid rgba(17,24,39,0.15)';
+      cancelBtn.onblur = () => cancelBtn.style.outline = '';
+
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      return new Promise(resolve => {
+        function cleanup() {
+          modal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+          okBtn.removeEventListener('click', onOk);
+          cancelBtn.removeEventListener('click', onCancel);
+          document.removeEventListener('keydown', onKey);
+        }
+        function onOk() { cleanup(); resolve(true); }
+        function onCancel() { cleanup(); resolve(false); }
+        function onKey(e) {
+          if (e.key === 'Escape') { onCancel(); }
+          if (e.key === 'Enter') { onOk(); }
+        }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey);
+      });
+    }
+    // expose to global so other scripts can detect and use it
+    window.showConfirm = showConfirm;
+ 
+    /* Global tab switching function - defined early */
+    window.switchTab = function(targetTab) {
+      console.log('Switching to tab:', targetTab);
+      
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      // Remove active classes from all tabs
+      tabButtons.forEach(btn => {
+        btn.classList.remove('border-b-2', 'border-green-600', 'text-green-600');
+        btn.classList.add('hover:text-green-600');
+      });
+      
+      // Add active classes to clicked tab
+      const activeTab = document.querySelector(`[data-tab="${targetTab}"]`);
+      if (activeTab) {
+        activeTab.classList.add('border-b-2', 'border-green-600', 'text-green-600');
+        activeTab.classList.remove('hover:text-green-600');
+      }
+      
+      // Hide all tab contents
+      tabContents.forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      // Show target tab content
+      const targetContent = document.getElementById(targetTab + 'Content');
+      if (targetContent) {
+        targetContent.classList.remove('hidden');
+      }
+      
+      // Show/Hide Open Appointment button based on active tab
+      const openAppointmentBtn = document.getElementById('openAppointmentBtn');
+      if (openAppointmentBtn) {
+        if (targetTab === 'appointments') {
+          openAppointmentBtn.classList.remove('hidden');
+        } else {
+          openAppointmentBtn.classList.add('hidden');
+        }
+      }
+      
+      // Update search placeholder
+      const searchInput = document.getElementById('universalSearchBar');
+      if (searchInput) {
+        const placeholders = {
+          'appointments': 'Search appointments...',
+          'todo': 'Search tasks...',
+          'feedback': 'Search feedback...'
+        };
+        searchInput.placeholder = placeholders[targetTab] || 'Search...';
+        searchInput.value = ''; // Clear search when switching tabs
+      }
+      
+      // Reset data when switching tabs
+      if (targetTab === 'appointments' && typeof renderAppointments === 'function') {
+        renderAppointments();
+      } else if (targetTab === 'todo' && typeof renderTasks === 'function') {
+        renderTasks();
+      }
+    };
+   
+
+    /* Global confirmation for important actions (opt-out via data-no-confirm="1") */
+    (function(){
+      document.addEventListener('click', function(e){
+        const el = e.target.closest('button, [role="button"], a');
+        if (!el) return;
+        if (el.dataset.noConfirm === '1') return;
+
+        const customMsg = (el.dataset.confirm || '').trim();
+        const label = (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || '').trim().replace(/\s+/g,' ');
+        const lower = label.toLowerCase();
+        const match = lower.match(/\b(save|delete|remove|close|apply)\b/i);
+        if (!customMsg && !match) return;
+
+        // prevent the original click action (including inline onclick) from running now
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const actionWord = match ? match[0] : null;
+        const msg = customMsg || (actionWord ? `Are you sure you want to ${actionWord}?` : 'Are you sure you want to proceed?');
+
+        // showConfirm returns Promise<boolean>
+        showConfirm(msg, { okText: 'Yes', cancelText: 'No' }).then(ok => {
+          if (!ok) return;
+          // mark element to bypass confirmation for the programmatic trigger
+          el.dataset.noConfirm = '1';
+
+          // If it's a link with an href, navigate manually
+          if (el.tagName.toLowerCase() === 'a') {
+            const href = el.getAttribute('href');
+            if (href && href !== '#') {
+              // cleanup flag then navigate
+              setTimeout(() => { delete el.dataset.noConfirm; }, 50);
+              window.location.href = href;
+              return;
+            }
+          }
+
+          // trigger the original action (will bypass this handler because of data-no-confirm)
+          el.click();
+
+          // cleanup the bypass flag shortly after
+          setTimeout(() => { delete el.dataset.noConfirm; }, 300);
+        }).catch(() => {
+          /* ignore errors, do nothing on cancel */
+        });
+      }, true);
+    })();
+ 
+    // Date exceptions functionality removed
+
+// Holiday import functionality removed
+
+(function wireMobileNav(){
+  const btn = document.getElementById('hamburgerBtn');
+  const menu = document.getElementById('mobileMenu');
+  const closeBtn = document.getElementById('mobileCloseBtn');
+
+  function updateVisibility(){
+    const isMobile = window.innerWidth <= 768;
+    if(btn) btn.style.display = isMobile ? 'inline-flex' : 'none';
+    if(menu) { if(!isMobile) { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true'); } }
+  }
+
+  window.addEventListener('resize', updateVisibility);
+  // initial
+  updateVisibility();
+
+  if(!btn) return;
+  btn.addEventListener('click', (e)=> {
+    // safety: don't open on desktop even if visible
+    if(window.innerWidth > 768) return;
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    if(open) closeMenu(); else openMenu();
+  });
+
+
+})();
+  
+  // Account card actions: links and logout
+  (function wireAccountActions(){
+    const profile = document.getElementById('profileInfoLink');
+    const notif = document.getElementById('notifSettingsLink');
+    const privacy = document.getElementById('privacySecurityLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const profileBtn = document.getElementById('profileBtn');
+    const dropdown = document.getElementById('profileDropdown');
+    const dropdownLogoutBtn = document.getElementById('dropdownLogoutBtn');
+    const viewAccountLink = document.getElementById('viewAccountLink');
+    const accountCard = document.getElementById('accountCard');
+
+    const toast = (msg) => {
+      try {
+        const div = document.createElement('div');
+        div.textContent = msg;
+        div.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:8px;z-index:4000;opacity:.96;font-size:13px';
+        document.body.appendChild(div);
+        setTimeout(()=> div.remove(), 2000);
+      } catch(_) { alert(msg); }
+    };
+
+    if (profile) profile.addEventListener('click', e => { e.preventDefault(); toast('Profile editor coming soon.'); });
+    if (notif) notif.addEventListener('click', e => { e.preventDefault(); toast('Notification settings coming soon.'); });
+    if (privacy) privacy.addEventListener('click', e => { e.preventDefault(); toast('Privacy & Security coming soon.'); });
+
+    // Dropdown toggling
+    function toggleDropdown(show) {
+      if (!dropdown) return;
+      const willShow = typeof show === 'boolean' ? show : dropdown.style.display === 'none';
+      dropdown.style.display = willShow ? 'block' : 'none';
+      dropdown.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+    }
+    if (profileBtn && dropdown) {
+      profileBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        toggleDropdown(dropdown.style.display === 'none');
+      });
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== profileBtn) toggleDropdown(false);
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleDropdown(false); });
+    }
+
+       if (viewAccountLink){
+        viewAccountLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggleDropdown(false);
+          // Navigate to settings page where account profile can be viewed/edited
+  window.location.href = 'counselor_viewAccount.html';
+        });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        // Use custom modal confirmation with designed buttons (no native confirm)
+        const ok = await window.showConfirm('Are you sure you want to log out?', {
+          okText: 'Yes',
+          cancelText: 'No',
+          okBg: '#0f6a56',
+          okHover: '#0c5a49',
+          okColor: '#ffffff'
+        });
+        if (!ok) return;
+
+        try {
+          logoutBtn.disabled = true; logoutBtn.style.opacity = '.6';
+          if (typeof window.logout === 'function') {
+            await window.logout();
+          }
+          try { ['dateExceptions','holidayDates'].forEach(k=>localStorage.removeItem(k)); } catch(_){ }
+          window.location.href = 'counselor_login.html';
+        } catch (err) {
+          console.error('Logout failed', err);
+          toast('Failed to log out. Please try again.');
+        } finally {
+          logoutBtn.disabled = false; logoutBtn.style.opacity = '';
+        }
+      });
+    }
+
+    if (dropdownLogoutBtn) {
+      dropdownLogoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        toggleDropdown(false);
+        // Reuse same flow with custom modal (no native confirm)
+        const ok = await window.showConfirm('Are you sure you want to log out?', {
+          okText: 'Yes',
+          cancelText: 'No',
+          okBg: '#0f6a56',
+          okHover: '#0c5a49',
+          okColor: '#ffffff'
+        });
+        if (!ok) return;
+        try {
+          // Disable the clicked dropdown logout button for immediate feedback
+          dropdownLogoutBtn.disabled = true; dropdownLogoutBtn.style.opacity = '.6';
+          if (typeof window.logout === 'function') { await window.logout(); }
+          try { ['weeklyAvailability_byWeeknday','dateExceptions','holidayDates'].forEach(k=>localStorage.removeItem(k)); } catch(_){ }
+          window.location.href = 'counselor_login.html';
+        } catch (err) {
+          console.error('Logout failed', err);
+          toast('Failed to log out. Please try again.');
+        } finally {
+          dropdownLogoutBtn.disabled = false; dropdownLogoutBtn.style.opacity = '';
+        }
+      });
+    }
+  })();
+    // Direct tab initialization as backup
+    setTimeout(function() {
+      const tabButtons = document.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        if (!button.hasAttribute('data-direct-init')) {
+          button.setAttribute('data-direct-init', 'true');
+          button.style.cursor = 'pointer';
+          button.style.pointerEvents = 'auto';
+          console.log('Direct tab initialization for:', button.dataset.tab);
+        }
+      });
+    }, 500);
+
+
+    // Immediate script execution to ensure buttons work on page load
+    (function() {
+      // Wait for DOM to be ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeButtons);
+      } else {
+        initializeButtons();
+      }
+
+      function initializeButtons() {
+        // Ensure navigation buttons work
+        const navButtons = document.querySelectorAll('.nav .nav-item');
+        navButtons.forEach(btn => {
+          if (!btn.hasAttribute('data-initialized')) {
+            btn.setAttribute('data-initialized', 'true');
+            btn.addEventListener('click', handleNavClick);
+          }
+        });
+
+        // Ensure burger menu works
+        const burger = document.getElementById('burger');
+        if (burger && !burger.hasAttribute('data-initialized')) {
+          burger.setAttribute('data-initialized', 'true');
+          burger.addEventListener('click', handleBurgerClick);
+        }
+      }
+
+      function handleNavClick(e) {
+        const btn = e.currentTarget;
+        const navMap = {
+          "Home": "counselor_home.html",
+          "Appointments": "counselor_appointment.html", 
+          "Students": "counselor_student.html",
+          "Messages": "counselor_message.html",
+          "Settings": "counselor_setting.html"
+        };
+
+        // Update active state
+        document.querySelectorAll('.nav .nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Close mobile sidebar
+        if (window.innerWidth <= 720) {
+          document.body.classList.remove('show-sidebar');
+        }
+
+        // Navigate
+        const target = navMap[btn.dataset.name];
+        if (target) {
+          setTimeout(() => {
+            window.location.href = target;
+          }, 50);
+        }
+      }
+
+      function handleBurgerClick(e) {
+        e.stopPropagation();
+        if (window.innerWidth <= 720) {
+          document.body.classList.toggle('show-sidebar');
+        } else {
+          const isCollapsed = document.body.classList.toggle('collapsed');
+          localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

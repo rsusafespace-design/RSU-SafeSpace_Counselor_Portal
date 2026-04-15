@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Video Session</title>
+  <style>
+    body { margin:0; height:100vh; display:flex; flex-direction:column; }
+    header { background:#0f7a34; color:#fff; padding:10px; font-size:16px; }
+    #jitsi-container { flex:1; }
+  </style>
+</head>
+<body>
+  <header id="sessionTitle">Loading session...</header>
+  <div id="jitsi-container"></div>
+
+  <script src='https://8x8.vc/vpaas-magic-cookie-f889d6e6488646548cf6a78618a37cc8/external_api.js'></script>
+  
+  <script>
+    function getQueryParam(key) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(key);
+    }
+
+    document.addEventListener("DOMContentLoaded", function(){
+        const roomName = getQueryParam('room');
+        const displayName = getQueryParam('name') || 'Guest';
+        const role = (getQueryParam('role') || 'participant').toLowerCase();
+        // counselorName can be overridden by url param name, or default
+        const counselorName = getQueryParam('counselor') || displayName || "Counselor";
+        const jitsiContainer = document.getElementById('jitsi-container');
+        let api = null;
+
+        if(!roomName) { alert('No room generated. Please try again.'); return; }
+        document.getElementById('sessionTitle').textContent = `Session with  ${displayName}`;
+
+        const domain = "8x8.vc";
+        const options = {
+            roomName: roomName,
+            parentNode: jitsiContainer,
+            host: domain,
+            userInfo: { displayName: counselorName },
+            configOverwrite: {
+                startWithAudioMuted: false,
+                startWithVideoMuted: false
+            },
+            interfaceConfigOverwrite: {
+                TOOLBAR_BUTTONS: ['microphone','camera','chat','raisehand','hangup','tileview']
+            }
+        };
+
+        try {
+            api = new JitsiMeetExternalAPI(domain, options);
+        } catch (err) {
+            console.error('Jitsi API error', err);
+            alert('Failed to initialize Jitsi API. Check console for details.');
+            api = null;
+            return;
+        }
+
+        // --- WebSocket signaling for "calling" notification ---
+        let ws = null;
+        try {
+          ws = new WebSocket('ws://localhost:3000');
+        } catch (e) {
+          console.warn('WebSocket connect failed', e);
+        }
+
+        function sendWS(obj) {
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
+          ws.send(JSON.stringify(obj));
+        }
+
+        if (ws) {
+          ws.addEventListener('open', () => {
+            // register role & room
+            sendWS({ type: 'register', role, room: roomName });
+          });
+
+          ws.addEventListener('message', (ev) => {
+            let msg = null;
+            try { msg = JSON.parse(ev.data); } catch (e) { return; }
+            if (msg.type === 'calling' && role === 'student') {
+              // show in-page notification for incoming call
+              showIncomingCall(msg.from || 'Counselor');
+            }
+          });
+        }
+
+        // When counselor actually joins (Jitsi event), notify students in same room
+        try {
+          api.addListener('videoConferenceJoined', () => {
+            // send calling so the student who is waiting will see the notification
+            sendWS({ type: 'calling', from: counselorName, room: roomName });
+            // mark consultation roomStatus = 1 (calling)
+            (async function(){
+              try{
+                const consultId = getQueryParam('consult');
+                if (!consultId) return;
+                const { ref, update } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+                const { db } = await import('./auth-db.js').then(m => m.initFirebase());
+                const consultRef = ref(db, `consultations/${consultId}`);
+                await update(consultRef, { roomStatus: 1 });
+                console.log('video.html: set roomStatus=1 for', consultId);
+              }catch(e){ console.warn('video.html: failed to set roomStatus', e); }
+            })();
+          });
+        } catch (e) {
+          console.warn('Could not attach Jitsi listener', e);
+        }
+
+        // when counselor leaves the conference, clear the roomStatus (set to 0)
+        try {
+          api.addListener('videoConferenceLeft', () => {
+            (async function(){
+              try{
+                const consultId = getQueryParam('consult');
+                if (!consultId) return;
+                const { ref, update } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+                const { db } = await import('./auth-db.js').then(m => m.initFirebase());
+                const consultRef = ref(db, `consultations/${consultId}`);
+                await update(consultRef, { roomStatus: 0 });
+                console.log('video.html: cleared roomStatus=0 for', consultId);
+              }catch(e){ console.warn('video.html: failed to clear roomStatus', e); }
+            })();
+          });
+        } catch (e) { console.warn('Could not attach videoConferenceLeft listener', e); }
+
+        // also attempt to clear on page unload as a best-effort fallback
+        window.addEventListener('beforeunload', function(){
+          try{
+            const consultId = getQueryParam('consult');
+            if (!consultId) return;
+            // best-effort async (do not await)
+            import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js').then(({ ref, update })=>{
+              return import('./auth-db.js').then(m=>m.initFirebase()).then(({ db })=>{
+                const consultRef = ref(db, `consultations/${consultId}`);
+                try{ update(consultRef, { roomStatus: 0 }); }catch(e){ /* swallow */ }
+              }).catch(()=>{});
+            }).catch(()=>{});
+          }catch(e){}
+        });
+
+        // UI: simple incoming-call overlay for students
+        function showIncomingCall(fromName) {
+          if (document.getElementById('incoming-call')) return; // already shown
+          const overlay = document.createElement('div');
+          overlay.id = 'incoming-call';
+          overlay.style.position = 'fixed';
+          overlay.style.left = '12px';
+          overlay.style.bottom = '12px';
+          overlay.style.zIndex = 99999;
+          overlay.style.maxWidth = '320px';
+          overlay.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+          overlay.style.borderRadius = '10px';
+          overlay.style.overflow = 'hidden';
+          overlay.style.background = '#fff';
+          overlay.style.fontFamily = 'Arial, Helvetica, sans-serif';
+
+          const inner = document.createElement('div');
+          inner.style.padding = '12px';
+
+          const h = document.createElement('div');
+          h.textContent = `${fromName} is calling...`;
+          h.style.fontWeight = '700';
+          h.style.marginBottom = '8px';
+
+          const btnRow = document.createElement('div');
+          btnRow.style.display = 'flex';
+          btnRow.style.gap = '8px';
+
+          const accept = document.createElement('button');
+          accept.textContent = 'Join';
+          accept.style.background = '#2563eb';
+          accept.style.color = '#fff';
+          accept.style.border = 'none';
+          accept.style.padding = '8px 12px';
+          accept.style.borderRadius = '8px';
+          accept.addEventListener('click', () => {
+            // allow the student to join the conference by focusing the iframe
+            // or just remove the popup - the Jitsi frame is already on page, student can press Join
+            overlay.remove();
+            // Optionally auto-press Join button inside Jitsi (not reliable cross-origin)
+          });
+
+          const decline = document.createElement('button');
+          decline.textContent = 'Dismiss';
+          decline.style.background = '#ef4444';
+          decline.style.color = '#fff';
+          decline.style.border = 'none';
+          decline.style.padding = '8px 12px';
+          decline.style.borderRadius = '8px';
+          decline.addEventListener('click', () => overlay.remove());
+
+          btnRow.appendChild(accept);
+          btnRow.appendChild(decline);
+
+          inner.appendChild(h);
+          inner.appendChild(btnRow);
+          overlay.appendChild(inner);
+          document.body.appendChild(overlay);
+        }
+    });
+  </script>
+</body>
+</html>

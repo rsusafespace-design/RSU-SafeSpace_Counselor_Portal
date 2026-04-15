@@ -1,0 +1,3643 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Cropper.js Library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <!-- Material Icons for profile dropdown icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    /* Force bottom nav visible on this page (always) */
+    .bottom-nav{ display:flex !important; }
+  </style>
+  <style>
+  /* Profile dropdown styles (shared) */
+  .profile-dropdown{position:absolute;right:16px;top:56px;width:280px;min-width:310px;max-width:calc(100vw - 32px);background:#fff;border-radius:12px;box-shadow:0 18px 40px rgba(2,6,23,0.16);border:1px solid rgba(2,6,23,0.06);z-index:1200;overflow:hidden;color:#111827;font-size:14px}
+    .profile-dropdown .pd-head{display:flex;gap:16px;align-items:center;padding:18px 18px 14px 18px;border-bottom:1px solid #f1f4f7}
+    .pd-head .pd-avatar{width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid rgba(2,6,23,0.04);background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green)}
+    .pd-head .pd-meta{min-width:0}
+    .pd-head .pd-meta .pd-name{font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-head .pd-meta .pd-email{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .profile-dropdown .pd-list{padding:8px 0}
+    .profile-dropdown .pd-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid #f1f4f7;background:transparent;color:#111827;text-decoration:none;cursor:pointer}
+    .profile-dropdown .pd-item:first-of-type{border-top:0}
+    .profile-dropdown .pd-item:hover{background:#f8fafc}
+    .profile-dropdown .pd-item .pd-icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--green);font-size:16px}
+    .profile-dropdown .pd-item .pd-label{flex:1;font-weight:600}
+    .profile-dropdown .pd-item .pd-caret{color:rgba(0,0,0,0.4)}
+    .profile-dropdown .pd-footer{background:var(--green);color:#fff;padding:12px 16px;text-align:center;font-weight:800}
+    .profile-dropdown .pd-footer button{background:transparent;border:0;color:inherit;font-weight:800;cursor:pointer;width:100%}
+  </style>
+  <script type="module">
+  import { watchAuth, showUserInfo, db } from "./main.js";
+  import { get, query, ref, orderByChild, equalTo, set, push } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    let currentUserId = null;
+    
+    watchAuth(user => {
+      if (!user || user.isAnonymous || !user.email) {
+        // Clear any cached user data
+        currentUserId = null;
+        sessionStorage.clear();
+        window.location.replace("counselor_login.html");
+      } else {
+        // Check if this is a different user than before
+        if (currentUserId && currentUserId !== user.uid) {
+          // Clear cached data when switching users
+          sessionStorage.clear();
+          localStorage.removeItem('cachedUserInfo');
+          console.log('User switched, clearing cached data');
+        }
+        currentUserId = user.uid;
+        
+        // Force refresh user info
+        showUserInfo(user).catch(error => {
+          console.error('Error showing user info:', error);
+          // Fallback to basic display
+          const greetingEl = document.getElementById('greeting');
+          const sidebarEl = document.getElementById('sidebarUserName');
+          const avatarEl = document.getElementById('userAvatar');
+          if (greetingEl) greetingEl.textContent = 'Good Day, Counselor 👋';
+          if (sidebarEl) sidebarEl.textContent = 'Counselor';
+          if (avatarEl) avatarEl.textContent = 'C';
+        });
+        
+        // Wait for DOM to be ready before loading profile
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => {
+            loadCounselorProfile(user.uid);
+          });
+        } else {
+          setTimeout(() => {
+            loadCounselorProfile(user.uid);
+          }, 500);
+        }
+      }
+    });
+
+    // Function to load counselor profile from database
+    async function loadCounselorProfile(uid) {
+      try {
+        console.log('Loading counselor profile for UID:', uid);
+        const q = query(ref(db, "counselors"), orderByChild("uid"), equalTo(uid));
+        const qsnap = await get(q);
+        
+        if (qsnap.exists()) {
+          let counselorFound = false;
+          qsnap.forEach(child => {
+            const counselorData = child.val();
+            // Save the database key and auth uid for later use by rating helpers
+            window.currentCounselorKey = child.key;
+            window.currentCounselorUid = counselorData.uid || uid;
+            console.log('Counselor data found:', counselorData, 'key=', child.key);
+            populateProfileForm(counselorData);
+            counselorFound = true;
+          });
+          
+          if (!counselorFound) {
+            console.warn('No valid counselor data in snapshot');
+            showProfileNotFound(uid);
+          }
+        } else {
+          console.log("No counselor profile found for this user UID:", uid);
+          showProfileNotFound(uid);
+        }
+      } catch (error) {
+        console.error("Error loading counselor profile:", error);
+        showProfileNotFound(uid, error.message);
+      }
+    }
+    
+    // Helper function to show profile not found message
+    function showProfileNotFound(uid, errorMsg = null) {
+      const profileName = document.getElementById('profileHeaderName');
+      if (profileName) {
+        profileName.textContent = errorMsg ? 'Profile Load Error' : 'Profile Not Found';
+      }
+      
+      // Clear form fields
+      clearFormFields();
+      
+      console.log('Profile not found for UID:', uid, errorMsg ? 'Error:' : '', errorMsg || '');
+    }
+    
+    // Helper function to clear form fields
+    function clearFormFields() {
+      const fieldIds = ['firstNameField', 'lastNameField', 'emailField', 'usernameField', 'campusField', 'collegeField', 'phoneField'];
+      fieldIds.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.value = '';
+        }
+      });
+    }
+
+
+
+    // Function to populate the profile form with database data
+    function populateProfileForm(data) {
+
+      
+      // Profile header - prioritize full name for profile display
+      const profileName = document.getElementById('profileHeaderName');
+      if (profileName) {
+        if (data.first_name && data.last_name) {
+          profileName.textContent = `${data.first_name} ${data.last_name}`;
+        } else if (data.name) {
+          profileName.textContent = data.name;
+        } else if (data.username) {
+          profileName.textContent = data.username;
+        } else {
+          profileName.textContent = 'Counselor Profile';
+        }
+      }
+
+      // Wait for DOM to be ready, then populate fields
+      setTimeout(() => {
+        // Populate form fields directly by ID with multiple field name options
+        const fieldMappings = {
+          firstNameField: data.first_name || data.firstName || '',
+          lastNameField: data.last_name || data.lastName || '',
+          emailField: data.email_address || data.email || '',
+          usernameField: data.username || '',
+          campusField: data.campus || '',
+          collegeField: data.college || '',
+          phoneField: data.phone_number || data.phone || data.phoneNumber || ''
+        };
+        
+        Object.keys(fieldMappings).forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            field.value = fieldMappings[fieldId];
+          }
+        });
+      }, 100);
+
+      // Update profile image if available - check multiple possible field names
+      const profileImg = document.getElementById('profileImage');
+      if (profileImg) {
+        // Use the correct field name from database: photo_url
+        const imageUrl = data.photo_url;
+        
+        console.log('Looking for profile image in data:', {
+          photo_url: data.photo_url,
+          selectedImage: imageUrl
+        });
+        
+        if (imageUrl) {
+          console.log('Setting profile image to:', imageUrl);
+          profileImg.src = imageUrl;
+        } else if (data.first_name && data.last_name) {
+          // If no profile image, use initials as backup
+          const initials = `${data.first_name.charAt(0)}${data.last_name.charAt(0)}`.toUpperCase();
+          profileImg.alt = initials;
+          console.log('No profile image found, using initials:', initials);
+        }
+      }
+
+      // Update status badges if available
+      if (data.status) {
+        const statusBadge = document.querySelector('.bg-green-100');
+        if (statusBadge) {
+          statusBadge.textContent = data.status;
+        }
+      }
+
+      if (data.counselor_id) {
+        const idBadge = document.querySelector('.bg-purple-100');
+        if (idBadge) {
+          idBadge.textContent = `ID: ${data.counselor_id}`;
+        }
+      }
+      // Render star rating if available
+      try { renderStarRating(data.rating_avg || data.rating || 0, data.rating_count || 0); } catch(_){ }
+        // Also attempt to fetch the current user's own rating (if any) and update the UI
+        try {
+          // currentCounselorUid should have been set by loadCounselorProfile
+          const cUid = window.currentCounselorUid || data.uid || data.uid;
+          // If the signed-in user is the counselor themself, make the widget view-only and don't fetch student rating
+          if (cUid && window.currentUserId && window.currentUserId !== cUid) {
+            fetchStudentRatingAndUpdateUI(cUid, window.currentUserId).catch(e => console.debug('fetchStudentRating failed', e));
+          } else if (cUid && window.currentUserId && window.currentUserId === cUid) {
+            // counselor viewing their own profile: mark rating widget read-only and show note
+            const meta = document.getElementById('ratingMeta');
+            if (meta) meta.textContent = meta.textContent ? `${meta.textContent} • (view only)` : '(view only)';
+            // visually disable star interactions
+            const container = document.getElementById('starRating');
+            if (container) container.dataset.readOnly = '1';
+          }
+        } catch(e) { console.debug('student rating fetch attempt failed', e); }
+    }
+
+    // --- Rating widget ---
+    function renderStarRating(avg, count) {
+      try {
+        const container = document.getElementById('starRating');
+        const meta = document.getElementById('ratingMeta');
+        if (!container) return;
+        const rounded = Math.round(Number(avg || 0));
+        container.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+          const span = document.createElement('span');
+          span.className = 'ss-star';
+          span.dataset.value = String(i);
+          span.textContent = i <= rounded ? '★' : '☆';
+          span.style.color = i <= rounded ? '#f59e0b' : '#e5e7eb';
+          span.style.cursor = 'pointer';
+          span.style.userSelect = 'none';
+          // hover preview
+          span.addEventListener('mouseover', () => {
+            for (let j = 0; j < i; j++) container.children[j].textContent = '★';
+            for (let j = i; j < 5; j++) container.children[j].textContent = '☆';
+          });
+          span.addEventListener('mouseout', () => {
+            for (let j = 0; j < 5; j++) container.children[j].textContent = (j < rounded) ? '★' : '☆';
+          });
+          span.addEventListener('click', async (e) => {
+            const score = Number(e.currentTarget.dataset.value || 0);
+            try {
+              await rateCounselor(score);
+            } catch (err) { console.error('rateCounselor failed', err); alert('Failed to submit rating'); }
+          });
+          container.appendChild(span);
+        }
+        if (meta) {
+          if (count && Number(count) > 0) meta.textContent = `${Number(avg).toFixed(2)} • ${count} rating${Number(count) === 1 ? '' : 's'}`;
+          else meta.textContent = 'No ratings yet';
+        }
+      } catch (e) { console.error('renderStarRating', e); }
+    }
+
+    // New flow: students rate a counselor; we store a per-student rating under
+    // /ratings/{counselorUid}/{studentUid} and also push a history entry to /ratings_history
+    // After saving we recompute the aggregate and update the counselor record.
+    async function rateCounselor(score) {
+      try {
+        if (!score || score < 1 || score > 5) return;
+        if (!currentUserId) { alert('You must be signed in to rate'); return; }
+        // Determine counselor UID/key for the profile currently displayed
+        const counselorUid = window.currentCounselorUid || null;
+        const counselorKey = window.currentCounselorKey || null;
+        if (!counselorUid) { alert('Counselor ID not available'); return; }
+        // prevent counselors from rating themselves
+        if (currentUserId === counselorUid) { alert('Counselors cannot rate themselves.'); return; }
+
+        const now = Date.now();
+
+        // 1) Save per-student canonical rating (upsert)
+        await set(ref(db, `ratings/${counselorUid}/${currentUserId}`), {
+          counselor_uid: counselorUid,
+          student_uid: currentUserId,
+          rating: Number(score),
+          createdAt: now
+        });
+
+        // 2) Push a history/audit record (keeps past changes)
+        try {
+          await push(ref(db, `ratings_history`), {
+            counselor_uid: counselorUid,
+            student_uid: currentUserId,
+            rating: Number(score),
+            createdAt: now
+          });
+        } catch (err) { console.debug('failed to push history rating', err); }
+
+        // 3) Recompute aggregate (sum/count across ratings/{counselorUid})
+        const ratingsSnap = await get(ref(db, `ratings/${counselorUid}`));
+        let sum = 0; let cnt = 0;
+        if (ratingsSnap && ratingsSnap.exists()) {
+          ratingsSnap.forEach(ch => {
+            const v = ch.val();
+            if (v && typeof v.rating !== 'undefined') { sum += Number(v.rating || 0); cnt++; }
+          });
+        }
+        const avg = cnt ? (sum / cnt) : 0;
+
+        // 4) Persist aggregates back to counselor record (if we have the key use it, otherwise find the record)
+        if (counselorKey) {
+          await set(ref(db, `counselors/${counselorKey}/rating_total`), sum);
+          await set(ref(db, `counselors/${counselorKey}/rating_count`), cnt);
+          await set(ref(db, `counselors/${counselorKey}/rating_avg`), avg);
+        } else {
+          // fallback: locate counselor record by uid
+          const q = query(ref(db, 'counselors'), orderByChild('uid'), equalTo(counselorUid));
+          const snap = await get(q);
+          snap.forEach(ch => {
+            set(ref(db, `counselors/${ch.key}/rating_total`), sum).catch(()=>{});
+            set(ref(db, `counselors/${ch.key}/rating_count`), cnt).catch(()=>{});
+            set(ref(db, `counselors/${ch.key}/rating_avg`), avg).catch(()=>{});
+          });
+        }
+
+  // 5) Update UI: render aggregate and show student's rating
+        renderStarRating(avg, cnt);
+        // show student-specific note in meta
+        const meta = document.getElementById('ratingMeta');
+        if (meta) meta.textContent = `${avg.toFixed(2)} • ${cnt} rating${cnt===1? '':'s'} • Your rating: ${score}`;
+
+        alert('Thanks — your rating has been saved');
+      } catch (e) { console.error('rateCounselor error', e); throw e; }
+    }
+
+    // Fetch the current student's rating for the given counselor and update the rating meta
+    async function fetchStudentRatingAndUpdateUI(counselorUid, studentUid) {
+      try {
+        if (!counselorUid || !studentUid) return null;
+        const snap = await get(ref(db, `ratings/${counselorUid}/${studentUid}`));
+        if (!snap || !snap.exists()) return null;
+        const val = snap.val();
+        const myRating = val.rating;
+        // Append student info to ratingMeta
+        const meta = document.getElementById('ratingMeta');
+        if (meta) {
+          // preserve existing aggregate text (if any)
+          const base = meta.textContent || '';
+          if (base.includes('Your rating:')) {
+            // replace existing
+            meta.textContent = base.replace(/\bYour rating:\s*\d+/,'Your rating: ' + myRating);
+          } else {
+            meta.textContent = (base && base !== 'No ratings yet') ? `${base} • Your rating: ${myRating}` : `Your rating: ${myRating}`;
+          }
+        }
+
+        // visually preselect stars up to the user's rating (adds a CSS class data-my-rating)
+        const container = document.getElementById('starRating');
+        if (container) {
+          container.dataset.myRating = String(myRating || '0');
+          // update star glyphs to match user's rating temporarily on mouseout
+          const rounded = Math.round(Number(myRating || 0));
+          for (let j = 0; j < 5; j++) container.children[j].textContent = (j < rounded) ? '★' : '☆';
+        }
+        return myRating;
+      } catch (e) { console.debug('fetchStudentRatingAndUpdateUI error', e); return null; }
+    }
+
+    // expose a safe render call if profile already has rating fields
+    try { window.renderStarRating = window.renderStarRating || renderStarRating; } catch(_){}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="stylesheet" href="mobile.css" media="(max-width:480px)">
+  <title>SafeSpace — Counselor Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ====== ROOT VARIABLES & BASE STYLES ====== */
+    :root {
+      /* Color Palette */
+      --green: #0f7a34;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --bg: #f4f6fb;
+      
+      /* Shadows & Elevation */
+      --card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+      --card-elev-1: 0 10px 30px rgba(2,6,23,0.08);
+      --card-elev-2: 0 20px 60px rgba(2,6,23,0.12);
+      
+      /* Layout Variables */
+      --radius: 10px;
+      --sidebar-width: 250px;
+      --collapsed-width: 80px;
+      --topbar-height: 64px;
+      --gap: 16px;
+      --content-padding: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: #111;
+    }
+
+    /* Profile Picture Cropping Styles */
+    #cropModal {
+      backdrop-filter: blur(4px);
+    }
+    
+    #cropContainer {
+      touch-action: none;
+      user-select: none;
+    }
+    
+    #cropImage {
+      cursor: move;
+      max-width: none;
+      max-height: none;
+    }
+    
+    /* Circular Cropper Styles */
+    .cropper-crop-box,
+    .cropper-view-box {
+      border-radius: 50%;
+    }
+    
+    .cropper-view-box {
+      box-shadow: 0 0 0 1px #39f;
+      outline: 0;
+    }
+    
+    .cropper-face {
+      background-color: inherit;
+    }
+    
+    /* Profile Image Circular Display */
+    #profileImage {
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    /* Custom Range Slider Styles */
+    #zoomSlider {
+      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #e5e7eb 100%);
+    }
+    
+    #zoomSlider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    #zoomSlider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ====== SIDEBAR STYLES ====== */
+    .sidebar {
+      width: 250px;
+      background: #f0f3f6;
+      border-right: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      z-index: 40;
+    }
+
+    .sidebar .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 20px;
+      background: var(--green);
+      color: #fff;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 20px;
+    }
+
+    .burger {
+      background: transparent;
+      border: 0;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 6px;
+      z-index: 120;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+    }
+
+    /* ====== NAVIGATION STYLES ====== */
+    .nav {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .nav button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 10px;
+      border-radius: 8px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      color: #1f2937;
+      font-weight: 400;
+      min-height: 44px;
+    }
+
+    .nav .label {
+      font-size: 15px;
+    }
+
+    .nav button.active {
+      background: rgba(15,122,52,0.08);
+      color: var(--green);
+    }
+
+    .nav .icon {
+      width: 56px;
+      height: 48px;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(14px, 2.6vw, 26px);
+      line-height: 1;
+    }
+
+    /* ====== SIDEBAR COLLAPSE STYLES ====== */
+    body.collapsed .sidebar {
+      width: 80px;
+    }
+
+    body.collapsed .nav .icon {
+      width: 56px;
+      font-size: 26px;
+      justify-content: center;
+    }
+
+    body.collapsed .nav button {
+      justify-content: center;
+      padding: 12px 6px;
+    }
+
+    body.collapsed .nav button .label {
+      display: none;
+    }
+
+    body.collapsed .sidebar .bottom .logged {
+      display: none;
+    }
+
+    body.collapsed .sidebar .top .logo {
+      display: none;
+    }
+
+    .sidebar .bottom {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .logged {
+      font-size: 13px;
+      color: #374151;
+    }
+
+    /* Footer navigation collapsed styles */
+    body.collapsed .sidebar .bottom .nav-item .label {
+      display: none;
+    }
+
+    body.collapsed .sidebar .bottom .nav-item {
+      justify-content: center;
+      padding: 12px 6px;
+      gap: 0;
+    }
+
+    body.collapsed .sidebar .bottom .nav-item .icon {
+      width: 56px;
+      font-size: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ====== MAIN CONTENT AREA ====== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 35px 32px;
+      background: var(--green);
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--topbar-height);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand .title {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .brand .sub {
+      font-size: 13px;
+      opacity: 0.95;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: 0;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      min-height: 44px;
+      padding: 10px;
+    }
+
+    .avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+    }
+
+    /* ====== CONTENT GRID & LAYOUT ====== */
+    .content {
+      padding: var(--content-padding);
+      padding-top: calc(var(--topbar-height) + 6px);
+      padding-bottom: calc(56px + 20px);
+      transition: padding .2s ease;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: var(--gap);
+      grid-auto-rows: auto;
+      align-items: start;
+    }
+
+    /* ====== CARD STYLES ====== */
+    .card {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 14px;
+      grid-column: span 6;
+      box-shadow: var(--card-elev-1);
+      transition: transform .18s ease, box-shadow .18s ease;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .card .body {
+      flex: 1 1 auto;
+    }
+
+    .card .view-btn,
+    .card .btn-row {
+      margin-top: 12px;
+      align-self: stretch;
+    }
+
+    .card h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+    }
+
+    .card .body {
+      font-size: 14px;
+      color: #111;
+    }
+
+    .card{
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:14px;
+      grid-column:span 6;
+      box-shadow: var(--card-elev-1);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    /* stronger lift on hover / focus to create "uplift" feeling */
+    .card:hover,
+    .card:focus-within,
+    .calendar-card:hover,
+    .elevated-card:hover,
+    .two-cards > div:hover,
+    .bg-white.rounded-xl:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--card-elev-2);
+      z-index: 10;
+    }
+
+    /* apply base uplift style to other card-like containers */
+    .calendar-card,
+    .greeting-card,
+    .elevated-card,
+    .two-cards > div,
+    .bg-white.rounded-xl {
+      box-shadow: var(--card-elev-1);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .card h3{margin:0 0 8px 0;font-size:16px}
+    .card .body{font-size:14px;color:#111}
+    /* Make Events "View All" match Appointments button (full-width blue) */
+    .events.card { display:flex; flex-direction:column; }
+    .events .body { flex: 1 1 auto; }
+    .events .view-btn { margin-top:12px; align-self:stretch; }
+    .events .view-btn .btn {
+      display:block;
+      width:100%;
+      padding:12px 18px;
+      border-radius:12px;
+      background:#2563eb;        /* same blue as appointments */
+      color:#fff;
+      font-weight:700;
+      border:0;
+      cursor:pointer;
+      text-align:center;
+    }
+    .events .view-btn .btn:hover { filter:brightness(.95); }
+
+    /* Specific layout */
+    .appointments{grid-column:span 6}
+    .appointment{display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid #f1f4f7;cursor:pointer}
+    .appt-time{width:90px;color:var(--muted);font-weight:700}
+    .appt-info{flex:1}
+    .view-btn{text-align:center;margin-top:12px}
+    .btn{background:#2563eb;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
+
+    /* Calendar styles removed */
+
+    .reminders{grid-column:span 6}
+    .add-task{display:flex;gap:8px;margin-bottom:10px}
+    .add-task input{flex:1;padding:8px;border-radius:8px;border:1px solid #e6eef7}
+    .add-task button{padding:8px 12px;border-radius:8px;border:0;background:#10b981;color:#fff;cursor:pointer}
+
+    .task{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f3f4f6}
+    .task .left{display:flex;align-items:center;gap:8px}
+    .task .text.done{text-decoration:line-through;color:var(--muted)}
+
+    .events{grid-column:span 6}
+    .events-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+    .events-list li{padding:10px;border-radius:8px;border:1px solid #f3f4f6;cursor:pointer}
+    .event-title{font-weight:700}
+    .event-meta{font-size:13px;color:var(--muted)}
+
+    /* Greeting area */
+    /* Greeting area — increased gap below greeting */
+    .greeting-card{
+      grid-column:span 12;
+  padding:20px;
+      margin-bottom:20px;         /* larger gap between greeting and content */
+      border-radius:var(--radius);
+      background:var(--panel);
+      box-shadow:var(--card-shadow);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    /* ensure following content block respects gap on all breakpoints */
+    .content > .flex-1 { margin-top: 0; }
+
+    /* Responsive */
+    @media(max-width:1000px){
+      .grid{grid-template-columns:repeat(8,1fr)}
+      .appointments,.calendar{grid-column:span 8; grid-row: span 1;}
+      .reminders{grid-column:span 8}
+      .events{grid-column:span 8}
+    }
+    @media(max-width:720px){
+      /* On small screens sidebar becomes an off-canvas panel.
+         It is hidden by default and toggled with the burger (see JS change below). */
+      .sidebar{
+        width:260px; /* panel width when open */
+        position:fixed;
+        left:0;
+        top:0;
+        height:100vh;
+        transform:translateX(-100%);
+        transition:transform .28s ease;
+        box-shadow:0 12px 40px rgba(2,6,23,0.12);
+        background:#f0f3f6;
+      }
+      /* when the body has .show-sidebar the off-canvas becomes visible */
+      body.show-sidebar .sidebar{ transform:translateX(0); }
+
+      /* make sure content isn't overlapped when sidebar is fixed/hidden */
+      .main{ margin-left:0; }
+      .nav button .label{display:none}
+      .brand .title{font-size:20px}
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .card{padding:12px}
+      .appointments,.calendar{grid-column:span 6; grid-row: span 1;}
+      .reminders,.events{grid-column:span 6}
+    }
+
+    /* Appointments list styling (match provided design) */
+    .appointments .body { padding: 6px 0 0 0; }
+    .appointments .appointment {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #eef2f6;
+      background: transparent;
+    }
+    .appointments .appointment:last-child { border-bottom: none; }
+    .appointments .appt-time {
+      width: 110px;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .appointments .appt-info { flex: 1; font-size: 14px; color: #111; }
+    .appointments .appt-info .appt-name { font-weight:600; }
+    .appointments .status-badge {
+      white-space:nowrap;
+      font-size:13px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background:transparent;
+    }
+    .appointments .status-badge.today { color:#059669; }     /* green */
+    .appointments .status-badge.tomorrow { color:#7c3aed; }  /* purple */
+    .appointments .view-btn { margin-top:14px; }
+    .appointments .view-btn .btn {
+      display:block;
+      width:100%;
+      padding:12px 18px;
+      border-radius:12px;
+      background:#2563eb;
+      color:#fff;
+      font-weight:700;
+      border:0;
+      cursor:pointer;
+    }
+    .appointments .view-btn .btn:hover { filter:brightness(.96); }
+
+    /* make sure card still stretches in the grid */
+    .appointments.card { display:flex; flex-direction:column; }
+    .appointments .body { flex:1 1 auto; }
+
+    /* FullCalendar styles removed */
+
+    /* To-Do / Reminders card (full UI) */
+    .reminders .body {
+      padding: 16px;
+    }
+    .reminders h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .reminders .task {
+      padding: 10px 12px;
+      border: 1px solid #e6eef7;
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .reminders .task.done {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .reminders .task .text {
+      flex: 1;
+      margin-right: 12px;
+    }
+    .reminders .task .due {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .reminders .task button {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .reminders .task button.edit {
+      background: #2563eb;
+      color: #fff;
+    }
+    .reminders .task button.delete {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    /* Content grid - make base row height smaller */
+    .grid {
+      grid-auto-rows: minmax(10px, 1fr); /* reduced base row height (was 140px) */
+      align-items: start;
+    }
+
+    /* Make appointments shorter (single row) */
+    .appointments {
+      grid-row: span 1; /* was span 2 */
+    }
+
+    /* Keep other cards single-row */
+    .reminders,
+    .events {
+      grid-row: span 1;
+    }
+
+    /* Responsive: on narrower screens force single-row stacking */
+    @media (max-width:1000px){
+      .grid{grid-template-columns:repeat(8,1fr)}
+      .appointments,.calendar{grid-column:span 8; grid-row: span 1;}
+      .reminders{grid-column:span 8}
+      .events{grid-column:span 8}
+    }
+    @media (max-width:720px){
+      .grid{grid-template-columns:repeat(6,1fr)}
+      .appointments,.calendar{grid-column:span 6; grid-row: span 1;}
+      .reminders,.events{grid-column:span 6}
+    }
+
+    /* Desktop: keep sidebar + topbar fixed so they don't move on scroll */
+    @media (min-width:721px){
+      .sidebar{
+        position:fixed;
+        left:0;
+        top:0;
+        height:100vh;
+        z-index:60;
+      }
+      .main{
+        margin-left:250px; /* match .sidebar width */
+      }
+      .topbar{
+        position:fixed;
+        left:250px;        /* sit right of sidebar */
+        right:0;
+        top:0;
+        z-index:70;
+      }
+      /* reduce top padding so greeting card sits closer to topbar */
+      .content{
+        padding-top:64px;  /* was 72px */
+      }
+      /* handle collapsed sidebar state */
+      body.collapsed .main{ margin-left:80px; }
+      body.collapsed .topbar{ left:80px; }
+    }
+
+    /* Mobile: keep existing off-canvas behavior (no change) */
+    @media (max-width:720px){
+      .main{ margin-left:0; }
+      .topbar{ left:0; position:sticky; } /* fallback for mobile */
+    }
+
+    /* make each appointment look like a boxed card (left accent, rounded, shadow) */
+    .appointments .appointment{
+      display:flex;
+      gap:12px;
+      padding:14px;
+      border-radius:10px;
+      border:1px solid #eef2f6;
+      background:#fff;
+      align-items:center;
+      box-shadow:0 6px 18px rgba(16,24,40,0.04);
+      margin-bottom:12px;
+      position:relative;
+      overflow:hidden;
+    }
+    /* colored accent stripe on the left of each appointment */
+    .appointments .appointment::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:6px;
+      background:linear-gradient(180deg,#f59e0b,#fbbf24); /* yellow gradient like example */
+      border-top-left-radius:10px;
+      border-bottom-left-radius:10px;
+    }
+    .appointments .appointment:last-child{ margin-bottom:0; }
+
+    /* time column */
+    .appointments .appt-time{
+      width:120px;
+      color:var(--muted);
+      font-weight:700;
+      font-size:14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-start;
+      padding-left:12px; /* give space from accent stripe */
+    }
+
+    /* main info */
+    .appointments .appt-info{
+      flex:1;
+      font-size:14px;
+      color:#111;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .appointments .appt-info .appt-name{ font-weight:700; font-size:15px; }
+    .appointments .appt-info .appt-topic{ color:var(--muted); font-size:13px; }
+
+    /* status badge aligned to the right */
+    .appointments .status-badge{
+      white-space:nowrap;
+      font-size:13px;
+      font-weight:700;
+      padding:6px 10px;
+      border-radius:999px;
+      background:transparent;
+      margin-left:12px;
+    }
+    .appointments .status-badge.today{ color:#059669; }
+    .appointments .status-badge.tomorrow{ color:#b453ff; }
+
+    /* Session Note Modal (copied from todo.html) */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+    }
+    #modal > div {
+      background: #fff;
+      width: 720px;
+      max-width: calc(100% - 32px);
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(2, 6, 23, 0.2);
+      padding: 18px;
+    }
+    #modal h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    #modal label {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    #modal input,
+    #modal select,
+    #modal textarea {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #e6eef7;
+    }
+    #modal textarea {
+      resize: vertical;
+    }
+    #modal .btn {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #modal .btn.save {
+      background: #10b981;
+      color: #fff;
+    }
+    #modal .btn.submit {
+      background: #2563eb;
+      color: #fff;
+    }
+    #modal .btn.close {
+      background: transparent;
+      border: 0;
+      color: #6b7280;
+      cursor: pointer;
+    }
+
+    /* --- Phone-specific responsive overrides (mobile-first tweaks) --- */
+    @media (max-width:480px){
+      /* Hide desktop sidebar and make topbar compact */
+      .sidebar { display:none !important; }
+      .main{ margin-left:0; }
+      .topbar {
+        padding:10px 14px;
+        height:56px;
+        position:fixed;
+        left:0; right:0; top:0;
+        z-index:80;
+      }
+      .brand .title{ font-size:18px; }
+      .brand .sub{ display:none; }
+
+      /* Content area: leave space for fixed topbar and bottom nav */
+      .content {
+        padding:12px;
+        padding-top: calc(56px + 12px);
+        padding-bottom: 86px; /* room for bottom nav */
+      }
+
+      /* Remove greetings on phone (topbar + greeting card) */
+      #greeting, #datetime, .greeting-card { display: none !important; }
+
+      /* Grid becomes single column */
+      .grid {
+        grid-template-columns: 1fr;
+        gap:12px;
+        grid-auto-rows: auto;
+      }
+      .card { grid-column: auto; padding:12px; border-radius:10px; }
+      .greeting-card { padding:12px; flex-direction:column; align-items:flex-start; gap:8px; }
+
+      /* Show only Reminders (To-Do) and Events on phone */
+      .appointments { display: none !important; } /* hide appointments on phone */
+      .reminders, .events { display: block !important; grid-column: auto; }
+
+      /* Hide Messages nav item on phone */
+      .nav .nav-item[data-name="Messages"], .bottom-nav .nav-item[data-name="Messages"] { display: none !important; }
+
+      /* Appointments: stack info vertically, larger tap targets */
+      .appointments .appointment {
+        flex-direction:column;
+        align-items:flex-start;
+        padding:12px;
+        border-radius:8px;
+        margin-bottom:10px;
+      }
+      .appointments .appt-time{ width:auto; font-size:13px; padding-left:0; }
+      .appointments .status-badge{ margin-left:0; margin-top:8px; }
+
+      /* Reminders: make task rows touch friendly and full width */
+      .reminders .body { padding:8px 0; }
+      .reminders .task, .reminders li {
+        padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:8px;
+      }
+      .reminders .task .due { text-align:left; }
+
+      /* Events: increase spacing and touch area */
+      .events-list li { padding:12px; }
+
+      /* Modal: use full screen on small devices */
+      #modal > div {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        padding: 12px;
+        overflow:auto;
+      }
+
+      /* Bottom navigation (mobile) */
+      .bottom-nav{
+        display:flex;
+        position:fixed;
+        left:0; right:0; bottom:0;
+        height:72px;
+        background:#0f7a34; 
+        box-shadow:0 -8px 24px rgba(2,6,23,0.08);
+        z-index:90;
+        gap:0;
+        justify-content:space-around;
+        align-items:center;
+        padding:6px 8px;
+      }
+      .bottom-nav .nav-item{ flex:1; display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;border-radius:8px;background:transparent;border:0;color:#374151;font-weight:400; }
+      .bottom-nav .nav-item .icon{ font-size:20px; line-height:1; }
+      .bottom-nav .nav-item .label{ font-size:11px; color:#6b7280; }
+      .bottom-nav .nav-item.active{ color:var(--green); }
+    }
+    /* end of mobile rules */
+
+    /* Responsive overrides (mobile-first, safe defaults) */
+    :root{
+      --sidebar-width:250px;
+      --collapsed-width:80px;
+      --topbar-height:64px;
+      --gap:16px;
+      --content-padding:16px;
+    }
+
+    /* Make typography scale a bit */
+    html { font-size: 15px; }
+    @media (min-width:1200px){ html { font-size:16px; } }
+    @media (max-width:360px){ html { font-size:14px; } }
+
+    /* Ensure the burger is always reachable and clickable */
+    .burger{ z-index: 120; position: relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:8px; }
+    .sidebar .top .burger{ margin:0; }
+
+    /* Main responsive grid rules */
+    /* reduce default extra offset so greeting card is closer to top */
+    .content{ padding: var(--content-padding); padding-top: calc(var(--topbar-height) + 6px); transition: padding .2s ease; }
+    .grid{ gap: var(--gap); grid-auto-rows: auto; }
+
+    /* Breakpoints for grid columns */
+    @media (min-width:1100px){
+      .grid{ grid-template-columns: repeat(12, 1fr); }
+      .card{ grid-column: span 6; }
+      .appointments { grid-column: span 6; }
+      .reminders, .events { grid-column: span 6; }
+    }
+    @media (min-width:820px) and (max-width:1099px){
+      .grid{ grid-template-columns: repeat(8, 1fr); }
+      .card{ grid-column: span 8; }
+      .appointments { grid-column: span 8; }
+      .reminders, .events { grid-column: span 8; }
+    }
+    @media (max-width:819px){
+      .grid{ grid-template-columns: repeat(6, 1fr); }
+      .card{ grid-column: span 6; }
+      .appointments, .reminders, .events { grid-column: span 6; }
+    }
+    @media (max-width:480px){
+      .grid{ grid-template-columns: 1fr; }
+      .card{ grid-column: auto; width: 100%; padding:12px; }
+      .greeting-card{ padding:12px; flex-direction:column; align-items:flex-start; gap:8px; }
+      .top-right { gap:8px; }
+      .avatar{ width:36px; height:36px; font-size:14px; }
+    }
+
+    /* Sidebar behavior */
+    @media (min-width:721px){
+      .sidebar{ position:fixed; left:0; top:0; height:100vh; width:var(--sidebar-width); z-index:80; transition:width .18s ease, transform .25s ease; }
+      body.collapsed .sidebar{ width: var(--collapsed-width); }
+      .main{ margin-left: var(--sidebar-width); transition:margin-left .18s ease; }
+      body.collapsed .main{ margin-left: var(--collapsed-width); }
+      .topbar{ position:fixed; left: var(--sidebar-width); right:0; top:0; height:var(--topbar-height); z-index:85; transition:left .18s ease; }
+      body.collapsed .topbar{ left: var(--collapsed-width); }
+      .content{ padding-top: calc(var(--topbar-height) + 12px); }
+    }
+
+    /* Off-canvas for small screens */
+    @media (max-width:720px){
+      .sidebar{ width:260px; position:fixed; left:0; top:0; transform:translateX(-100%); transition:transform .28s ease; z-index:120; }
+      body.show-sidebar .sidebar{ transform: translateX(0); }
+      .main{ margin-left:0; }
+      .topbar{ left:0; right:0; position:sticky; z-index:95; }
+      .nav .label{ display:none; } /* show icon only on narrow screens */
+    }
+
+    /* Improve touch targets */
+    .nav button, .nav .nav-item, .icon-btn, .burger { min-height:44px; padding:10px; }
+    .nav .icon{ width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center; }
+
+    /* Card responsiveness */
+    .card{ box-sizing:border-box; max-width:100%; }
+    .events .view-btn .btn, .appointments .view-btn .btn{ width:100%; min-height:44px; }
+
+    /* Accessibility: visible focus states */
+    button:focus, .nav button:focus, .icon-btn:focus { outline:3px solid rgba(15,122,52,0.12); outline-offset:2px; }
+
+    /* Utility: make images/icons scale */
+    .icon, .avatar { font-size: clamp(14px, 2.6vw, 26px); }
+
+    /* small polish: reduce spacing on very small screens */
+    @media (max-width:360px){
+      :root{ --gap:10px; --content-padding:12px; --topbar-height:56px; }
+      .brand .title{ font-size:18px; }
+    }
+
+    /* End responsive overrides */
+
+    /* Footer: fixed and visible above content, responsive */
+    .site-footer{
+      position:fixed;
+      bottom:0;
+      left:var(--sidebar-width);
+      right:0;
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+      border-top:1px solid #eef2f6;
+      z-index:75;
+      font-size:13px;
+      color:#6b7280;
+    }
+
+    /* Ensure main content doesn't hide behind footer */
+    .content{ padding-bottom: calc(56px + 20px); }
+
+    /* On small screens the sidebar is hidden so footer should span full width */
+    @media (max-width:720px){
+      .site-footer{ left:0; }
+    }
+
+    /* keep room for very small screens / bottom-nav */
+    @media (max-width:480px){
+      .site-footer{ height:64px; }
+      .content{ padding-bottom: calc(64px + 20px); }
+    }
+
+    /* Two-cards layout: place Working Hours + Date Exceptions side-by-side on wide screens */
+    .two-cards{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr); /* two equal columns */
+      gap: 16px;
+      align-items: stretch; /* force equal height */
+      margin-bottom: 8px;
+    }
+
+    /* ensure each card fills the column and stacks content vertically */
+    .two-cards > div {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-width: 0; /* allow children to shrink inside grid */
+      border-radius: 12px;
+      background: var(--panel);
+      /* stronger default elevation */
+      box-shadow: 0 14px 34px rgba(2,6,23,0.06);
+      border: 1px solid rgba(2,6,23,0.04);
+      transition: transform .18s ease, box-shadow .18s ease;
+      will-change: transform;
+    }
+
+    /* hover/focus: lift the card visually (keyboard + mouse friendly) */
+    .two-cards > div:hover,
+    .two-cards > div:focus-within {
+      transform: translateY(-8px);
+      box-shadow: 0 28px 56px rgba(2,6,23,0.10);
+      z-index: 10;
+    }
+
+    /* Two-cards grid: keep equal heights */
+    .two-cards{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      align-items: stretch;
+      margin-bottom: 8px;
+    }
+    @media (max-width:720px){ .two-cards{ grid-template-columns: 1fr; } }
+
+    .elevated-card {
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--card-elev-1);
+  border: 1px solid rgba(2,6,23,0.04);
+  transition: transform .18s ease, box-shadow .18s ease;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+/* ensure inner sections grow so card height matches siblings */
+.elevated-card > .divide-y,
+.elevated-card > .space-y-2,
+.elevated-card > .space-y-4 {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* hover / focus lift */
+.elevated-card:hover,
+.elevated-card:focus-within {
+  transform: translateY(-8px);
+  box-shadow: 0 28px 56px rgba(2,6,23,0.10);
+  z-index: 10;
+}
+
+  /* shift the whole calendar card (not its inner content) */
+  .calendar-card { margin-left: 0; transition: margin .15s ease; box-sizing: border-box; }
+  @media (max-width:720px){ .calendar-card { margin-left: 0 !important; } }
+  </style>
+  <!-- Mobile bottom nav (renders only on phones) -->
+  <!-- placeholder removed; actual nav is injected near the end of the document -->
+  </head>
+  <body>
+    <!-- ====== MAIN APPLICATION CONTAINER ====== -->
+    <div class="app">
+      <!-- ====== SIDEBAR NAVIGATION ====== -->
+      <aside class="sidebar">
+      <div class="top">
+        <div class="logo">SafeSpace</div>
+        <button class="burger" id="burger">☰</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item " data-name="Home"><span class="icon">🏠</span><span class="label">Home</span></button>
+        <button class="nav-item" data-name="Appointments"><span class="icon">📅</span><span class="label">Appointments</span></button>
+        <button class="nav-item" data-name="Students"><span class="icon">👥</span><span class="label">Students</span></button>
+        <button class="nav-item" data-name="Messages"><span class="icon">💬</span><span class="label">Messages</span></button>
+       <button class="nav-item" data-name="Settings"><span class="icon">⚙️</span><span class="label">Settings</span></button>
+      </nav>
+      <div class="bottom">
+        <div style="padding:10px">
+          <div class="logged" style="margin-top:12px">Logged in as:<br><strong id="sidebarUserName">Counselor</strong></div>
+        </div>
+      </div>
+    </aside>
+
+      <!-- ====== MAIN CONTENT AREA ====== -->
+      <div class="main">
+        <!-- ====== TOP BAR ====== -->
+        <header class="topbar">
+        <!-- Mobile-only back button (shows only on small viewports) -->
+        <button id="mobileBackBtn" class="mobile-back-btn" aria-label="Back" title="Back" style="display:none;align-items:center;gap:8px;border:0;background:transparent;color:inherit;font-size:20px;margin-right:8px;padding:6px 8px;">
+          <i class="material-icons" style="font-size:26px;line-height:1">arrow_back</i>
+        </button>
+        <div class="brand">
+          <div class="title">SafeSpace</div>
+          <div class="sub">Counselor Portal</div>
+        </div>
+
+        <div class="top-right" style="position:relative">
+          <div style="text-align:right;margin-right:10px">
+            <div style="font-weight:700;font-size:16px" id="greeting">Good Morning, Counselor 👋</div>
+            <div style="font-size:13px;opacity:0.95" id="datetime">Sunday, Sept 7, 2025 — 06:45 AM</div>
+          </div>
+
+ <button id="notifBtn" class="icon-btn" aria-expanded="false" title="Notifications" style="color:white;padding:8px;border:none;border:0;display:inline-flex;align-items:center;justify-content:center;box-shadow:none;position:relative;">
+                        <i class="material-icons" style="color:white;font-size:30px;border:none;outline:none;background:transparent;">notifications</i>
+                        <span id="notifBadge" class="hidden" style="position:absolute;top:2px;right:2px;min-width:18px;height:18px;font-size:11px;background:#ef4444;color:#fff;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.15)">0</span>
+                    </button>
+
+                    <!-- Notifications dropdown -->
+                   <div id="notificationDropdown" class="hidden absolute right-4 top-16 w-96 max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-lg border border-gray-100 z-50" aria-hidden="true">
+                      <div class="flex items-start justify-between px-4 py-3 bg-gray-50 border-b">
+                        <h3 class="text-gray-900 text-lg font-semibold">Notifications</h3>
+                        <div class="flex items-center gap-3">
+                          <button id="markAllReadBtn" class="text-sm text-gray-500 hover:text-gray-700">Mark all read</button>
+                        </div>
+                      </div>
+
+                      <div id="notificationList" class="max-h-80 overflow-y-auto divide-y">
+                        <!-- Notifications will be populated here -->
+                      </div>
+
+                      <div class="px-4 py-3 border-t text-center">
+                        <button id="viewAllNotifications" class="text-sm font-bold text-green-600 hover:underline">View all notifications</button>
+                      </div>
+                    </div>
+          <button class="icon-btn" id="profileBtn" title="Profile" style="position:relative;padding:0;">
+            <div class="avatar" id="userAvatar" style="width:60px;height:60px;flex-shrink:0;position:relative;">
+              <img id="userAvatarImg" src="" alt="Profile" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+              <span id="userAvatarText" style="font-size:20px;">CJ</span>
+              <div style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                <span style="font-size:10px;color:#333;font-weight:bold;">v</span>
+              </div>
+            </div>
+          </button>
+          <!-- Profile dropdown menu (styled) -->
+          <div id="profileDropdown" class="profile-dropdown" aria-hidden="true" style="display:none;">
+              <div class="pd-head">
+                <div class="pd-avatar">
+                  <img id="profileDropdownAvatar" src="" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+                  <span id="profileDropdownAvatarText" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-weight:800;color:var(--green)"></span>
+                </div>
+                <div class="pd-meta">
+                  <div id="profileDropdownName" class="pd-name">Hi, RSU SAFESPACE</div>
+                  <div id="profileDropdownEmail" class="pd-email">rsusafespace@gmail.com</div>
+                </div>
+              </div>
+
+              <div style="padding:8px 6px;display:flex;flex-direction:column;gap:6px">
+                <button id="viewAccountLink" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;">person</i>
+                    <span style="flex:1;text-align:left">Manage your profile</span>
+                </button>
+        <button id="settingsBtn" class="profile-item" onclick="window.location.href='counselor_privacy.html'" aria-label="Open Privacy & Security" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px">
+          <i class="material-icons icon" style="font-size:18px;line-height:1;">security</i>
+          <span style="flex:1;text-align:left">Privacy &amp; Security</span>
+          <i class="material-icons icon" style="font-size:16px;opacity:0.7;">chevron_right</i>
+        </button>
+                <button id="dropdownLogoutBtn" class="profile-item" style="text-align:left;padding:10px;border-radius:8px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;color:#111;font-weight:600">
+                    <i class="material-icons icon" style="font-size:18px;line-height:1;color:#ef4444">logout</i>
+                    <span style="flex:1;text-align:left">Log Out</span>
+                </button>
+              </div>
+          </div>
+        </div>
+        
+        <!-- Mobile back button styles & behavior -->
+        <style>
+          .mobile-back-btn{display:none}
+          @media (max-width:720px){
+            .mobile-back-btn{display:flex}
+            /* make sure topbar content doesn't collide */
+            .topbar .brand{margin-left:8px}
+          }
+        </style>
+
+        <script>
+          // Mobile back button: prefer history.back(), then referrer, then home
+          (function(){
+            function onMobileBackClick(e){
+              e.preventDefault();
+              try {
+                if (window.history && window.history.length > 1) {
+                  window.history.back();
+                  return;
+                }
+                if (document.referrer && document.referrer !== '') {
+                  window.location.href = document.referrer;
+                  return;
+                }
+              } catch(err){ /* ignore */ }
+              // fallback
+              window.location.href = 'home.html';
+            }
+
+            document.addEventListener('DOMContentLoaded', function(){
+              const btn = document.getElementById('mobileBackBtn');
+              if (!btn) return;
+              btn.addEventListener('click', onMobileBackClick);
+              // ensure visibility state matches viewport when JS loads
+              function updateBackVisibility(){
+                try{
+                  const isMobile = window.innerWidth <= 720;
+                  btn.style.display = isMobile ? 'flex' : 'none';
+                }catch(e){}
+              }
+              updateBackVisibility();
+              window.addEventListener('resize', updateBackVisibility);
+            });
+          })();
+        </script>
+      </header>
+
+    <script type="module">
+    import { ref, get, query, orderByChild, equalTo, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { watchAuth, db, login, showUserInfo } from "./main.js";
+    import { fetchNotifications, sortNotifications } from './notifications-api.js';
+
+    // Display logged-in counselor's name in greeting
+    async function showCounselorName(user) {
+      if (!user || !user.uid) return;
+      try {
+        // Query counselors table for matching uid
+        const q = query(ref(db, "counselors"), orderByChild("uid"), equalTo(user.uid));
+        const qsnap = await get(q);
+        let displayName = user.email;
+        if (qsnap.exists()) {
+          qsnap.forEach((child) => {
+            const val = child.val();
+            if (val.first_name && val.last_name) {
+              displayName = `${val.first_name} ${val.last_name}`;
+            } else if (val.username) {
+              displayName = val.username;
+            }
+          });
+        }
+        const greetingEl = document.querySelector('div[style*="font-weight:700"][style*="font-size:18px"]');
+        if (greetingEl) {
+         greetingEl.textContent = `Good Morning, ${displayName} 👋`;
+        }
+      } catch (e) { console.warn('showCounselorName failed', e); }
+    }
+
+    function getNotificationIcon(type) {
+      const icons = { 'info': 'info', 'success': 'check_circle', 'warning': 'warning', 'alert': 'error' };
+      return icons[type] || 'notifications';
+    }
+
+    function updateNotificationBadge(notifications) {
+      const badge = document.getElementById('notifBadge');
+      if (!badge) return;
+      const unreadCount = Array.isArray(notifications) ? notifications.filter(n => n.unread).length : 0;
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+        badge.classList.remove('hidden');
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.classList.add('hidden');
+        badge.style.display = 'none';
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+      });
+    }
+
+    function displayNotifications(notifications) {
+      const notificationList = document.getElementById('notificationList');
+      if (!notificationList) return;
+      if (!notifications || notifications.length === 0) {
+        notificationList.innerHTML = `
+          <div class="p-6 text-center text-gray-500">
+            <span class="material-icons align-middle text-2xl">notifications_none</span>
+            <div class="mt-2">No notifications</div>
+          </div>
+        `;
+        return;
+      }
+
+      notificationList.innerHTML = notifications.map(notification => {
+        const unreadClass = notification.unread ? 'bg-blue-50' : 'bg-white';
+        const type = notification.type || 'info';
+        const icon = getNotificationIcon(type);
+        const typeClasses = {
+          info: 'bg-blue-100 text-blue-600',
+          success: 'bg-green-100 text-green-600',
+          warning: 'bg-yellow-100 text-yellow-800',
+          alert: 'bg-red-100 text-red-600'
+        };
+        const iconClasses = typeClasses[type] || typeClasses.info;
+
+        return `
+        <div class="px-4 py-3 flex gap-4 items-start hover:bg-gray-50 ${unreadClass} notification-row" data-id="${escapeHtml(notification.id)}" data-href="${escapeHtml(notification.href || '')}">
+          <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center ${iconClasses}">
+              <i class="material-icons">${escapeHtml(icon)}</i>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm text-gray-900 truncate">${escapeHtml(notification.title)}</div>
+            <div class="text-sm text-gray-600 mt-1 truncate">${escapeHtml(notification.message)}</div>
+            <div class="text-xs text-gray-400 mt-2">${escapeHtml(notification.time || '')}</div>
+          </div>
+        </div>
+        `;
+      }).join('');
+
+      // Attach click handlers to mark as read locally and navigate when href present
+      notificationList.querySelectorAll('.notification-row').forEach(item => {
+        item.addEventListener('click', function(e) {
+          const notificationId = this.getAttribute('data-id');
+          // If notification provides a direct href, navigate there immediately
+          const href = this.getAttribute('data-href') || this.dataset.href || '';
+          // Visually mark as read
+          this.classList.remove('bg-blue-50');
+          this.classList.add('bg-white');
+          const rows = Array.from(document.querySelectorAll('#notificationList .notification-row'));
+          const fake = rows.map(r => ({ id: r.dataset.id, unread: r.classList.contains('bg-blue-50') }));
+          updateNotificationBadge(fake);
+
+          if (href) {
+            try { window.location.href = href; } catch (e) { /* ignore */ }
+            return;
+          }
+        });
+      });
+    }
+
+    async function loadNotifications(uid) {
+      try {
+        console.debug('loadNotifications() called for uid=', uid);
+
+        // 1) Load explicit notifications node
+        let notifications = [];
+        try {
+          notifications = await fetchNotifications(uid);
+          console.debug('fetchNotifications returned', Array.isArray(notifications) ? notifications.length : typeof notifications, 'items');
+        } catch (e) {
+          console.warn('fetchNotifications failed', e);
+          notifications = [];
+        }
+
+        // 2) Load appointments for this counselor and map to notification-like items
+        let apptNotifications = [];
+        try {
+          const apptSnap = await get(ref(db, `appointments_by_counselor/${uid}`));
+          if (apptSnap.exists()) {
+            const apptData = apptSnap.val() || {};
+            const appts = Object.keys(apptData).map(k => ({ id: k, ...(apptData[k] || {}) }));
+            apptNotifications = appts.map(a => {
+              const when = (a.date ? `${a.date}` : '') + (a.time ? ` ${a.time}` : '');
+              const status = (a.status || '').toString().toLowerCase();
+
+              let title = 'Appointment Update';
+              let type = 'info';
+              let unread = false;
+
+              if (['pending', 'requested', 'new'].includes(status)) {
+                title = 'Appointment Request';
+                type = 'info';
+                unread = true;
+              } else if (['missed', 'no-show', 'noshow'].includes(status)) {
+                title = 'Missed Appointment';
+                type = 'alert';
+                unread = true;
+              } else if (['completed', 'done'].includes(status)) {
+                title = 'Appointment Completed';
+                type = 'success';
+                unread = false;
+              } else if (status.includes('refer') || a.referred_from) {
+                title = 'Appointment Referral';
+                type = 'warning';
+                unread = true;
+              } else if (['cancelled', 'canceled'].includes(status)) {
+                title = 'Appointment Cancelled';
+                type = 'warning';
+                unread = true;
+              }
+
+              let message = `${a.student_name || a.student || 'Student'}`;
+              if (a.concern) message += ` — ${a.concern}`;
+              if (a.referred_from) message += ` (referred from ${a.referred_from})`;
+              message = message.trim();
+
+                const isAcked = !!a.notification_ack;
+                return {
+                  id: `appt-${a.id}`,
+                  appointmentId: a.id,
+                  href: `counselor_appointment.html?appointmentId=${encodeURIComponent(a.id)}`,
+                  type,
+                  title,
+                  message,
+                  time: when || (a.created_at ? String(a.created_at) : ''),
+                  unread: !!unread && !isAcked
+                };
+            });
+            console.debug('Mapped', apptNotifications.length, 'appointments into notifications');
+          } else {
+            console.debug('No appointments found for counselor', uid);
+          }
+        } catch (err) {
+          console.warn('Failed to load appointments_by_counselor for', uid, err);
+          apptNotifications = [];
+        }
+
+        // 3) Detect upcoming appointments (within threshold) and schedule a re-check
+        const UPCOMING_THRESHOLD_HOURS = 2; // notify when appointment is within this many hours
+        const now = new Date();
+        const upcomingNotifications = [];
+        let nextCheckDelayMs = Infinity;
+
+        function parseApptDateTime(a) {
+          try {
+            if (!a || !a.date) return null;
+            const dateStr = String(a.date).trim();
+            const timeStr = (a.time || '').toString().trim();
+            const dateParts = dateStr.split(/[-\/]/).map(p => parseInt(p, 10));
+            if (dateParts.length >= 3) {
+              const year = dateParts[0];
+              const month = dateParts[1] - 1;
+              const day = dateParts[2];
+              let hour = 0, minute = 0;
+              if (timeStr) {
+                const tm = timeStr.split(':').map(p=>parseInt(p,10));
+                if (!isNaN(tm[0])) hour = tm[0];
+                if (!isNaN(tm[1])) minute = tm[1];
+              }
+              return new Date(year, month, day, hour, minute, 0, 0);
+            }
+            const d = new Date(`${dateStr} ${timeStr}`);
+            if (!isNaN(d.getTime())) return d;
+            return null;
+          } catch (e) { return null; }
+        }
+
+        (apptNotifications || []).forEach(a => {
+          const dt = parseApptDateTime(a);
+          if (!dt) return;
+          const diffMs = dt.getTime() - now.getTime();
+          const thresholdMs = UPCOMING_THRESHOLD_HOURS * 3600 * 1000;
+          if (diffMs > 0 && diffMs <= thresholdMs) {
+            const relMin = Math.max(1, Math.round(diffMs / 60000));
+            const rel = relMin >= 60 ? `${Math.floor(relMin/60)}h ${relMin%60}m` : `${relMin}m`;
+            upcomingNotifications.push({
+              id: `upcoming-${a.id}`,
+              appointmentId: a.id,
+              href: `counselor_appointment.html?appointmentId=${encodeURIComponent(a.id)}`,
+              type: 'warning',
+              title: 'Upcoming Appointment',
+              message: `${a.student_name || 'Student'}${a.concern ? ' — ' + a.concern : ''} at ${a.time || a.date} (in ${rel})`,
+              time: a.time ? `${a.date || ''} ${a.time}`.trim() : (a.date || ''),
+              unread: true
+            });
+          } else if (diffMs > thresholdMs) {
+            const delay = diffMs - thresholdMs;
+            if (delay > 0 && delay < nextCheckDelayMs) nextCheckDelayMs = delay;
+          }
+        });
+
+        // 4) Combine and dedupe
+        const combined = [];
+        const seen = new Set();
+        (notifications || []).forEach(n => { const id = String(n.id ?? n._id ?? Math.random()); if (!seen.has(id)) { seen.add(id); combined.push(n); } });
+        (apptNotifications || []).forEach(n => { if (!seen.has(n.id)) { seen.add(n.id); combined.push(n); } });
+        (upcomingNotifications || []).forEach(n => { if (!seen.has(n.id)) { seen.add(n.id); combined.push(n); } });
+
+        // 5) Sort
+        try { sortNotifications(combined); } catch (e) { /* fallback */ }
+
+        // 6) Render
+        displayNotifications(combined);
+        updateNotificationBadge(combined);
+
+        // Schedule a re-check
+        try {
+          if (Number.isFinite(nextCheckDelayMs) && nextCheckDelayMs < Infinity) {
+            const cap = Math.min(nextCheckDelayMs, 7 * 24 * 3600 * 1000);
+            setTimeout(() => {
+              try { loadNotifications(uid); } catch(e) { console.debug('scheduled loadNotifications failed', e); }
+            }, cap + 1000);
+            console.debug('Scheduled next notifications re-check in', Math.round((cap)/60000), 'minutes');
+          }
+        } catch (e) { /* ignore scheduling errors */ }
+      } catch (err) {
+        console.error('loadNotifications failed', err);
+      }
+    }
+
+    // Dev helper: push a test notification to the current user's notifications node
+    window.pushTestNotification = async function(opts = {}) {
+      try {
+        const cu = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser : null;
+        if (!cu || !cu.uid) return console.warn('No signed-in user available (currentUser is null)');
+        const uid = cu.uid;
+        const payload = {
+          title: opts.title || 'Test notification',
+          message: opts.message || `This is a test notification created at ${new Date().toLocaleString()}`,
+          type: opts.type || 'info',
+          time: opts.time || 'just now',
+          unread: true
+        };
+        const p = push(ref(db, `notifications/${uid}`));
+        await set(p, payload);
+        console.info('Test notification pushed to notifications/%s (key=%s)', uid, p.key || '(unknown)');
+        try { await loadNotifications(uid); } catch (e) { console.warn('loadNotifications after push failed', e); }
+        return true;
+      } catch (err) {
+        console.error('pushTestNotification failed', err);
+        return false;
+      }
+    };
+
+    // Dev helper: mark all notifications as read for current user
+    window.markAllAsRead = async function() {
+      try {
+        const cu = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser : null;
+        if (!cu || !cu.uid) return console.warn('No signed-in user available (currentUser is null)');
+        const uid = cu.uid;
+
+        const snap = await get(ref(db, `notifications/${uid}`));
+        if (snap.exists()) {
+          const data = snap.val() || {};
+          const keys = Object.keys(data);
+          await Promise.all(keys.map(k => set(ref(db, `notifications/${uid}/${k}/unread`), false)));
+          console.info('Marked', keys.length, 'notifications as read for', uid);
+        } else {
+          console.info('No notifications node found for', uid);
+        }
+
+        try {
+          const apptSnap = await get(ref(db, `appointments_by_counselor/${uid}`));
+          if (apptSnap.exists()) {
+            const apptData = apptSnap.val() || {};
+            const apptKeys = Object.keys(apptData);
+            const writes = [];
+            apptKeys.forEach(k => {
+              const a = apptData[k] || {};
+              const status = (a.status || '').toString().toLowerCase();
+              const isUnread = ['pending','requested','new','missed','no-show','noshow'].includes(status) || status.includes('refer');
+              if (isUnread) {
+                writes.push(set(ref(db, `appointments_by_counselor/${uid}/${k}/notification_ack`), true));
+              }
+            });
+            if (writes.length) {
+              await Promise.all(writes);
+              console.info('Acknowledged', writes.length, 'appointment notifications for', uid);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to mark appointment acknowledgements', e);
+        }
+
+        await loadNotifications(uid);
+        return true;
+      } catch (err) {
+        console.error('markAllAsRead failed', err);
+        return false;
+      }
+    };
+
+    // Toggle behavior and wiring
+    (function wireNotificationToggle(){
+      const notifBtn = document.getElementById('notifBtn');
+      const notifDropdown = document.getElementById('notificationDropdown');
+      const markAllReadBtn = document.getElementById('markAllReadBtn');
+      const clearAllBtn = document.getElementById('clearAllBtn');
+
+      if (!notifBtn || !notifDropdown) return;
+
+      function openDropdown() {
+        notifDropdown.classList.remove('hidden');
+        notifDropdown.setAttribute('aria-hidden', 'false');
+        notifBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeDropdown() {
+        notifDropdown.classList.add('hidden');
+        notifDropdown.setAttribute('aria-hidden', 'true');
+        notifBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      // Commented out the listeners here to avoid duplicate handlers. A single
+      // unified listener is attached earlier (DOMContentLoaded) which clones
+      // the button to remove prior listeners and provides consistent open/close behavior.
+      /*
+      notifBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (notifDropdown.classList.contains('hidden')) openDropdown(); else closeDropdown();
+      });
+
+      notifDropdown.addEventListener('click', (e) => { e.stopPropagation(); });
+
+      document.addEventListener('click', (e) => {
+        if (!notifDropdown.classList.contains('hidden') && !notifDropdown.contains(e.target) && e.target !== notifBtn) {
+          closeDropdown();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDropdown(); });
+      */
+
+      if (markAllReadBtn) markAllReadBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof window.markAllAsRead === 'function') window.markAllAsRead(); });
+      if (clearAllBtn) clearAllBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications(); });
+    })();
+
+    // Auth watcher: expose currentUser and load notifications when available
+    watchAuth((user) => {
+      if (!user || user.isAnonymous || !user.email) {
+        window.location.replace('counselor_login.html');
+      } else {
+        try { window.currentUser = user; } catch (e) { }
+        showCounselorName(user);
+        try { loadNotifications(user.uid); } catch (e) { console.warn('loadNotifications fail', e); }
+      }
+    });
+  </script>
+
+        <!-- ====== MAIN CONTENT ====== -->
+        <div class="content">
+          <div class="w-full p-6 space-y-6">
+
+    <!-- Profile + Settings Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- Profile Card -->
+  <div class="bg-white shadow-lg rounded-2xl p-6 col-span-3">
+        <div class="flex items-center space-x-6">
+          <div class="relative">
+            <img id="profileImage" src="https://i.pravatar.cc/150" class="w-100 h-32 rounded-full shadow-md border-4 border-green-500 cursor-pointer" title="Click to change profile picture">
+            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+            <div class="absolute bottom-0 right-0 bg-green-500 text-white rounded-full p-2 cursor-pointer hover:bg-green-600" onclick="document.getElementById('imageUpload').click()" title="Change Picture">
+              📷
+            </div>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800" id="profileHeaderName">Counselor</h2>
+            <div id="ratingWrapper" style="margin-top:6px;display:flex;align-items:center;gap:10px">
+              <div id="starRating" aria-label="Rate counselor" style="display:flex;gap:6px;cursor:pointer;font-size:20px"></div>
+              <div id="ratingMeta" style="font-size:13px;color:var(--muted)">No ratings yet</div>
+            </div>
+            <p class="text-gray-500">Counselor • Advocate</p>
+            <div class="flex gap-2 mt-2">
+              <span class="px-3 py-1 text-xs bg-green-100 text-green-600 rounded-full">Active</span>
+              <span class="px-3 py-1 text-xs bg-blue-100 text-blue-600 rounded-full">Login: Enable</span>
+              <span class="px-3 py-1 text-xs bg-purple-100 text-purple-600 rounded-full">ID: 001</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editable Info -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-500">First Name</label>
+            <input type="text" id="firstNameField" value="Mary Joy" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">Last Name</label>
+            <input type="text" id="lastNameField" value="Ermino" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">Email</label>
+            <input type="email" id="emailField" value="erminomaryjoy60@gmail.com" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">Username</label>
+            <input type="text" id="usernameField" value="Mjhoy" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">Campus</label>
+            <input type="text" id="campusField" value="Main Campus" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">College</label>
+            <input type="text" id="collegeField" value="College of Computing, Multimedia Arts and Digital Innovation" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+          <div>
+            <label class="text-sm text-gray-500">Phone Number</label>
+            <input type="text" id="phoneField" value="+63 912 345 6789" class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-green-300">
+          </div>
+        
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-6 text-right">
+          <button id="saveProfileBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- Change Password Card -->
+      <div class="bg-white shadow-lg rounded-2xl p-6 col-span-3 mt-4">
+        <h3 class="text-lg font-semibold mb-3">Security</h3>
+        <p class="text-sm text-gray-500 mb-4">Change your account password. This opens a secure dialog to update your password.</p>
+        <div class="text-right">
+          <button id="changePasswordBtn" class="bg-white text-blue-600 border border-blue-600 px-4 py-2 rounded-lg shadow hover:bg-blue-50 flex items-center gap-2 font-medium">
+            🔐 Change Password
+          </button>
+        </div>
+      </div>
+
+      <!-- Profile Picture Cropping Modal -->
+      <div id="cropModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[95vh] overflow-y-auto shadow-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Crop Photo</h3>
+            <button id="closeCropModal" class="text-gray-400 hover:text-gray-600 text-2xl p-1">&times;</button>
+          </div>
+          
+          <!-- Image Crop Area -->
+          <div class="relative mb-6">
+            <div id="cropContainer" class="relative w-full h-96 mx-auto bg-gray-200 rounded-lg overflow-hidden">
+              <img id="cropImage" class="max-w-full h-auto" style="display: block;">
+            </div>
+            <p class="text-sm text-gray-500 mt-2 text-center">Drag to adjust. The result will be a circular profile image.</p>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="flex gap-3 justify-end">
+            <button id="cropCancelBtn" class="px-6 py-2.5 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium">Cancel</button>
+            <button id="cropApplyBtn" class="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Change Password Modal -->
+      <div id="changePasswordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Change Password</h3>
+          </div>
+          
+          <form id="changePasswordForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+              <div class="relative">
+                <input type="password" id="currentPassword" class="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600" id="toggleCurrentPassword">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    <path class="eye-closed hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <div class="relative">
+                <input type="password" id="newPassword" class="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600" id="toggleNewPassword">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    <path class="eye-closed hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                  </svg>
+                </button>
+              </div>
+              <div class="text-xs text-gray-500 mt-1">Password must be at least 8 characters long</div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+              <div class="relative">
+                <input type="password" id="confirmPassword" class="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" required>
+                <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600" id="toggleConfirmPassword">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path class="eye-open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    <path class="eye-closed hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div id="passwordMessage" class="text-sm hidden"></div>
+            
+            <div class="flex gap-3 justify-end pt-4">
+              <button type="button" id="cancelPasswordChange" class="px-6 py-2.5 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium">Cancel</button>
+              <button type="submit" id="confirmPasswordChange" class="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+                <span id="changePasswordBtnText">Change Password</span>
+                <span id="changePasswordSpinner" class="hidden ml-2">🔄</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  <!-- JavaScript for Tab and To-Do functionality -->
+ 
+
+
+  <!-- end weekly modal -->
+
+  <!-- Footer -->
+    <!-- visible, fixed footer -->
+    <footer class="site-footer" role="contentinfo">
+      © 2025 SafeSpace | Counseling Management System
+    </footer>
+
+    <!-- Confirmation Modal -->
+     <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center;z-index:3000">
+    <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:92%;box-shadow:0 12px 40px rgba(2,6,23,0.2)">
+      <h3 id="confirmModalTitle" style="margin:0 0 8px 0;font-size:16px;font-weight:700">Confirm</h3>
+      <div id="confirmModalMessage" style="font-size:15px;margin-bottom:12px;color:#111">"Are you sure you want to change your password? This action cannot be undone."</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="confirmCancelBtn" style="background:#6c757d;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button id="confirmOkBtn" style="background:#00723f;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer">Confirm</button>
+      </div>
+    </div>
+  </div>
+      
+  <script type="module">
+    // ====== IMPORTS & GLOBAL SETUP ======
+    import * as db from './main.js';
+    
+    // Attach Firebase helpers to window for global access
+    window.db = db;
+
+    // ====== UTILITY FUNCTIONS ======
+    async function getCounselorId() {
+      try {
+        const user = await db.ensureAuth();
+        if (user && user.uid) return user.uid;
+      } catch (e) {
+        console.warn('ensureAuth failed', e);
+      }
+      return localStorage.getItem('counselorId') || null;
+    }
+
+    // ====== INITIALIZATION ======
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeNavigation();
+    });
+ // Date/time updater for header and card
+    function updateTime(){
+      const now=new Date();
+      const optionsDate = { weekday:'long', month:'short', day:'numeric', year:'numeric' };
+      const dateStr = now.toLocaleDateString(undefined, optionsDate);
+      const timeStr = now.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+      const datetime = document.getElementById('datetime');
+      const dateRight = document.getElementById('dateRight');
+      if(datetime) datetime.textContent = dateStr + ' — ' + timeStr;
+      if(dateRight) dateRight.textContent = dateStr + ' • ' + timeStr;
+    }
+    setInterval(updateTime,1000*30);
+    updateTime();
+ 
+  const b = document.getElementById('burger'), s = document.querySelector('.sidebar');
+  if (b && s) {
+    const KEY = 'sidebarCollapsed';
+    if (localStorage.getItem(KEY) === '1') document.body.classList.add('collapsed');
+
+    const toggle = () => {
+      if (window.innerWidth <= 720) document.body.classList.toggle('show-sidebar');
+      else localStorage.setItem(KEY, document.body.classList.toggle('collapsed') ? '1' : '0');
+    };
+
+    b.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+
+    document.addEventListener('click', e => {
+      if (window.innerWidth <= 720 && document.body.classList.contains('show-sidebar') && !s.contains(e.target) && !b.contains(e.target)) {
+        document.body.classList.remove('show-sidebar');
+      }
+    });
+
+      // Navigation functionality
+      const navMap = {
+        "Home": "home.html",
+        "Appointments": "counselor_appointment.html", 
+        "Students": "counselor_student.html",
+        "Messages": "counselor_message.html",
+
+        "Settings": "counselor_setting.html"
+      };
+
+      document.querySelectorAll('.nav .nav-item').forEach(n => {
+        n.addEventListener('click', (e) => {
+          e.preventDefault();
+          
+          // Close sidebar on mobile
+          if (window.innerWidth <= 720) document.body.classList.remove('show-sidebar');
+          
+          // Navigate to target page
+          const target = navMap[n.dataset.name];
+          if (target) {
+            setTimeout(() => {
+              window.location.href = target;
+            }, window.innerWidth <= 720 ? 100 : 0);
+          }
+        });
+      });    window.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('show-sidebar'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 720) document.body.classList.remove('show-sidebar'); });
+  }
+    // ====== NAVIGATION INITIALIZATION ======
+    function initializeNavigation() {
+      const burger = document.getElementById('burger');
+      const sidebar = document.querySelector('.sidebar');
+      
+      if (!burger || !sidebar) return;
+      
+      const STORAGE_KEY = 'sidebarCollapsed';
+      
+      // Restore collapsed state
+      if (localStorage.getItem(STORAGE_KEY) === '1') {
+        document.body.classList.add('collapsed');
+      }
+
+      // Toggle sidebar function
+      const toggleSidebar = () => {
+        if (window.innerWidth <= 720) {
+          document.body.classList.toggle('show-sidebar');
+        } else {
+          const isCollapsed = document.body.classList.toggle('collapsed');
+          localStorage.setItem(STORAGE_KEY, isCollapsed ? '1' : '0');
+        }
+      };
+
+      // Event listeners
+      burger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSidebar();
+      });
+
+      // Close mobile sidebar when clicking outside
+      document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 720 && 
+            document.body.classList.contains('show-sidebar') && 
+            !sidebar.contains(e.target) && 
+            !burger.contains(e.target)) {
+          document.body.classList.remove('show-sidebar');
+        }
+      });
+
+      // Navigation button click handlers
+      const navMap = {
+        "Home": "home.html",
+        "Appointments": "counselor_appointment.html", 
+        "Students": "counselor_student.html",
+        "Messages": "counselor_message.html",
+        "Settings": "counselor_setting.html"
+      };
+
+      document.querySelectorAll('.nav .nav-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          
+          // Close mobile sidebar if open
+          if (window.innerWidth <= 720) {
+            document.body.classList.remove('show-sidebar');
+          }
+
+          // Update active state
+          document.querySelectorAll('.nav .nav-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          // Navigate to the target page
+          const target = navMap[btn.dataset.name];
+          if (target) {
+            setTimeout(() => {
+              window.location.href = target;
+            }, window.innerWidth <= 720 ? 100 : 0);
+          }
+        });
+      });
+
+      // Global event handlers
+      window.addEventListener('keydown', (e) => { 
+        if (e.key === 'Escape') document.body.classList.remove('show-sidebar'); 
+      });
+      
+      window.addEventListener('resize', () => { 
+        if (window.innerWidth > 720) document.body.classList.remove('show-sidebar'); 
+      });
+    }
+ 
+    // ====== MODAL ALERT FUNCTIONS ======
+    function showModalAlert(modalId, message, opts = {}) {
+      const alertIdMap = {
+        'timeSlotModal': 'timeSlotAlert'
+      };
+      
+      const alertId = alertIdMap[modalId] || modalId + 'Alert';
+      const element = document.getElementById(alertId);
+      
+      if (!element) {
+        // Fallback to browser alert if element missing
+        window.alert(message);
+        return;
+      }
+      
+      element.textContent = message;
+      element.style.display = 'block';
+      
+      // Style based on type
+      if (opts.type === 'success') {
+        element.style.background = '#e6ffed';
+        element.style.color = '#0f5132';
+        element.style.border = '1px solid #c7f0d6';
+      } else {
+        element.style.background = '#fff5f5';
+        element.style.color = '#842029';
+        element.style.border = '1px solid #f5c2c7';
+      }
+      
+      // Auto-hide unless persistent
+      if (!opts.persistent) {
+        clearTimeout(element._hideTimer);
+        element._hideTimer = setTimeout(() => {
+          element.style.display = 'none';
+        }, opts.timeout || 4000);
+      }
+    }
+    
+    // Expose globally for other scripts
+    window.showModalAlert = showModalAlert;
+   
+    function clearModalAlertById(modalId) {
+      const alertIdMap = {'timeSlotModal': 'timeSlotAlert'};
+      const alertId = alertIdMap[modalId] || modalId + 'Alert';
+      const element = document.getElementById(alertId);
+      
+      if (element) {
+        element.style.display = 'none';
+        element.textContent = '';
+        clearTimeout(element._hideTimer);
+      }
+    }
+
+    // ====== CONFIRMATION MODAL FUNCTION ======
+    function showConfirm(message, opts = {}) {
+      const modal = document.getElementById('confirmModal');
+      const msgEl = document.getElementById('confirmModalMessage');
+      const titleEl = document.getElementById('confirmModalTitle');
+      const okBtn = document.getElementById('confirmOkBtn');
+      const cancelBtn = document.getElementById('confirmCancelBtn');
+      
+      // Fallback to native confirm if modal elements not found
+      if (!modal || !msgEl || !okBtn || !cancelBtn) {
+        return Promise.resolve(window.confirm(message));
+      }
+
+      // Set content
+      msgEl.textContent = message || '';
+      if (titleEl) titleEl.textContent = opts.title || 'Confirm';
+      okBtn.textContent = opts.okText || 'Yes';
+      cancelBtn.textContent = opts.cancelText || 'No';
+
+      // Button styling configuration
+      const okBg = opts.okBg || '#0f6a56';
+      const okHover = opts.okHover || '#0c5a49';
+      const okText = opts.okColor || '#ffffff';
+      const radius = '12px';
+
+      // Style OK button
+      Object.assign(okBtn.style, {
+        background: okBg,
+        color: okText,
+        border: '0',
+        padding: '10px 16px',
+        borderRadius: radius,
+        cursor: 'pointer',
+        fontWeight: '700',
+        minWidth: '96px',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.10)'
+      });
+      
+      // OK button interactions
+      okBtn.onmouseenter = () => okBtn.style.background = okHover;
+      okBtn.onmouseleave = () => okBtn.style.background = okBg;
+      okBtn.onfocus = () => okBtn.style.outline = '3px solid rgba(15,106,86,0.25)';
+      okBtn.onblur = () => okBtn.style.outline = '';
+
+  cancelBtn.style.background = '#f3f4f6';
+  cancelBtn.style.color = '#111827';
+  cancelBtn.style.border = '1px solid #e5e7eb';
+  cancelBtn.style.padding = '10px 16px';
+  cancelBtn.style.borderRadius = radius;
+  cancelBtn.style.cursor = 'pointer';
+  cancelBtn.style.fontWeight = '700';
+  cancelBtn.style.minWidth = '96px';
+      cancelBtn.onmouseenter = () => cancelBtn.style.background = '#e5e7eb';
+      cancelBtn.onmouseleave = () => cancelBtn.style.background = '#f3f4f6';
+      cancelBtn.onfocus = () => cancelBtn.style.outline = '3px solid rgba(17,24,39,0.15)';
+      cancelBtn.onblur = () => cancelBtn.style.outline = '';
+
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      return new Promise(resolve => {
+        function cleanup() {
+          modal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+          okBtn.removeEventListener('click', onOk);
+          cancelBtn.removeEventListener('click', onCancel);
+          document.removeEventListener('keydown', onKey);
+        }
+        function onOk() { cleanup(); resolve(true); }
+        function onCancel() { cleanup(); resolve(false); }
+        function onKey(e) {
+          if (e.key === 'Escape') { onCancel(); }
+          if (e.key === 'Enter') { onOk(); }
+        }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey);
+      });
+    }
+    // expose to global so other scripts can detect and use it
+    window.showConfirm = showConfirm;
+ 
+    /* Global tab switching function - defined early */
+    window.switchTab = function(targetTab) {
+      console.log('Switching to tab:', targetTab);
+      
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      // Remove active classes from all tabs
+      tabButtons.forEach(btn => {
+        btn.classList.remove('border-b-2', 'border-green-600', 'text-green-600');
+        btn.classList.add('hover:text-green-600');
+      });
+      
+      // Add active classes to clicked tab
+      const activeTab = document.querySelector(`[data-tab="${targetTab}"]`);
+      if (activeTab) {
+        activeTab.classList.add('border-b-2', 'border-green-600', 'text-green-600');
+        activeTab.classList.remove('hover:text-green-600');
+      }
+      
+      // Hide all tab contents
+      tabContents.forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      // Show target tab content
+      const targetContent = document.getElementById(targetTab + 'Content');
+      if (targetContent) {
+        targetContent.classList.remove('hidden');
+      }
+      
+      // Show/Hide Open Appointment button based on active tab
+      const openAppointmentBtn = document.getElementById('openAppointmentBtn');
+      if (openAppointmentBtn) {
+        if (targetTab === 'appointments') {
+          openAppointmentBtn.classList.remove('hidden');
+        } else {
+          openAppointmentBtn.classList.add('hidden');
+        }
+      }
+      
+      // Update search placeholder
+      const searchInput = document.getElementById('universalSearchBar');
+      if (searchInput) {
+        const placeholders = {
+          'appointments': 'Search appointments...',
+          'todo': 'Search tasks...',
+          'feedback': 'Search feedback...'
+        };
+        searchInput.placeholder = placeholders[targetTab] || 'Search...';
+        searchInput.value = ''; // Clear search when switching tabs
+      }
+      
+      // Reset data when switching tabs
+      if (targetTab === 'appointments' && typeof renderAppointments === 'function') {
+        renderAppointments();
+      } else if (targetTab === 'todo' && typeof renderTasks === 'function') {
+        renderTasks();
+      }
+    };
+   
+
+    /* Global confirmation for important actions (opt-out via data-no-confirm="1") */
+    (function(){
+      document.addEventListener('click', function(e){
+        const el = e.target.closest('button, [role="button"], a');
+        if (!el) return;
+        if (el.dataset.noConfirm === '1') return;
+
+        const customMsg = (el.dataset.confirm || '').trim();
+        const label = (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || '').trim().replace(/\s+/g,' ');
+        const lower = label.toLowerCase();
+        const match = lower.match(/\b(save|delete|remove|close|apply)\b/i);
+        if (!customMsg && !match) return;
+
+        // prevent the original click action (including inline onclick) from running now
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const actionWord = match ? match[0] : null;
+        const msg = customMsg || (actionWord ? `Are you sure you want to ${actionWord}?` : 'Are you sure you want to proceed?');
+
+        // showConfirm returns Promise<boolean>
+        showConfirm(msg, { okText: 'Yes', cancelText: 'No' }).then(ok => {
+          if (!ok) return;
+          // mark element to bypass confirmation for the programmatic trigger
+          el.dataset.noConfirm = '1';
+
+          // If it's a link with an href, navigate manually
+          if (el.tagName.toLowerCase() === 'a') {
+            const href = el.getAttribute('href');
+            if (href && href !== '#') {
+              // cleanup flag then navigate
+              setTimeout(() => { delete el.dataset.noConfirm; }, 50);
+              window.location.href = href;
+              return;
+            }
+          }
+
+          // trigger the original action (will bypass this handler because of data-no-confirm)
+          el.click();
+
+          // cleanup the bypass flag shortly after
+          setTimeout(() => { delete el.dataset.noConfirm; }, 300);
+        }).catch(() => {
+          /* ignore errors, do nothing on cancel */
+        });
+      }, true);
+    })();
+ 
+    // Date exceptions functionality removed
+
+// Holiday import functionality removed
+
+(function wireMobileNav(){
+  const btn = document.getElementById('hamburgerBtn');
+  const menu = document.getElementById('mobileMenu');
+  const closeBtn = document.getElementById('mobileCloseBtn');
+
+  function updateVisibility(){
+    const isMobile = window.innerWidth <= 768;
+    if(btn) btn.style.display = isMobile ? 'inline-flex' : 'none';
+    if(menu) { if(!isMobile) { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true'); } }
+  }
+
+  window.addEventListener('resize', updateVisibility);
+  // initial
+  updateVisibility();
+
+  if(!btn) return;
+  btn.addEventListener('click', (e)=> {
+    // safety: don't open on desktop even if visible
+    if(window.innerWidth > 768) return;
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    if(open) closeMenu(); else openMenu();
+  });
+
+
+})();
+  
+  // Account card actions: links and logout
+  (function wireAccountActions(){
+    const profile = document.getElementById('profileInfoLink');
+    const notif = document.getElementById('notifSettingsLink');
+    const privacy = document.getElementById('privacySecurityLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const profileBtn = document.getElementById('profileBtn');
+    const dropdown = document.getElementById('profileDropdown');
+    const dropdownLogoutBtn = document.getElementById('dropdownLogoutBtn');
+    const viewAccountLink = document.getElementById('viewAccountLink');
+    const accountCard = document.getElementById('accountCard');
+
+    const toast = (msg) => {
+      try {
+        const div = document.createElement('div');
+        div.textContent = msg;
+        div.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:8px;z-index:4000;opacity:.96;font-size:13px';
+        document.body.appendChild(div);
+        setTimeout(()=> div.remove(), 2000);
+      } catch(_) { alert(msg); }
+    };
+
+    if (profile) profile.addEventListener('click', e => { e.preventDefault(); toast('Profile editor coming soon.'); });
+    if (notif) notif.addEventListener('click', e => { e.preventDefault(); toast('Notification settings coming soon.'); });
+    if (privacy) privacy.addEventListener('click', e => { e.preventDefault(); toast('Privacy & Security coming soon.'); });
+
+    // Dropdown toggling
+    function toggleDropdown(show) {
+      if (!dropdown) return;
+      const willShow = typeof show === 'boolean' ? show : dropdown.style.display === 'none';
+      dropdown.style.display = willShow ? 'block' : 'none';
+      dropdown.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+    }
+    if (profileBtn && dropdown) {
+      profileBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        toggleDropdown(dropdown.style.display === 'none');
+      });
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== profileBtn) toggleDropdown(false);
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleDropdown(false); });
+    }
+
+       if (viewAccountLink){
+        viewAccountLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggleDropdown(false);
+          // Navigate to settings page where account profile can be viewed/edited
+  window.location.href = 'counselor_viewAccount.html';
+        });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        // Use custom modal confirmation with designed buttons (no native confirm)
+        const ok = await window.showConfirm('Are you sure you want to log out?', {
+          okText: 'Yes',
+          cancelText: 'No',
+          okBg: '#0f6a56',
+          okHover: '#0c5a49',
+          okColor: '#ffffff'
+        });
+        if (!ok) return;
+
+        try {
+          logoutBtn.disabled = true; logoutBtn.style.opacity = '.6';
+          if (typeof window.logout === 'function') {
+            await window.logout();
+          }
+          try { ['dateExceptions','holidayDates'].forEach(k=>localStorage.removeItem(k)); } catch(_){ }
+          window.location.href = 'counselor_login.html';
+        } catch (err) {
+          console.error('Logout failed', err);
+          toast('Failed to log out. Please try again.');
+        } finally {
+          logoutBtn.disabled = false; logoutBtn.style.opacity = '';
+        }
+      });
+    }
+
+    if (dropdownLogoutBtn) {
+      dropdownLogoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        toggleDropdown(false);
+        // Reuse same flow with custom modal (no native confirm)
+        const ok = await window.showConfirm('Are you sure you want to log out?', {
+          okText: 'Yes',
+          cancelText: 'No',
+          okBg: '#0f6a56',
+          okHover: '#0c5a49',
+          okColor: '#ffffff'
+        });
+        if (!ok) return;
+        try {
+          // Disable the clicked dropdown logout button for immediate feedback
+          dropdownLogoutBtn.disabled = true; dropdownLogoutBtn.style.opacity = '.6';
+          if (typeof window.logout === 'function') { await window.logout(); }
+          try { ['weeklyAvailability_byWeeknday','dateExceptions','holidayDates'].forEach(k=>localStorage.removeItem(k)); } catch(_){ }
+          window.location.href = 'counselor_login.html';
+        } catch (err) {
+          console.error('Logout failed', err);
+          toast('Failed to log out. Please try again.');
+        } finally {
+          dropdownLogoutBtn.disabled = false; dropdownLogoutBtn.style.opacity = '';
+        }
+      });
+    }
+  })();
+    // Direct tab initialization as backup
+    setTimeout(function() {
+      const tabButtons = document.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        if (!button.hasAttribute('data-direct-init')) {
+          button.setAttribute('data-direct-init', 'true');
+          button.style.cursor = 'pointer';
+          button.style.pointerEvents = 'auto';
+          console.log('Direct tab initialization for:', button.dataset.tab);
+        }
+      });
+    }, 500);
+
+
+    // Immediate script execution to ensure buttons work on page load
+    (function() {
+      // Wait for DOM to be ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeButtons);
+      } else {
+        initializeButtons();
+      }
+
+      function initializeButtons() {
+        // Ensure navigation buttons work
+        const navButtons = document.querySelectorAll('.nav .nav-item');
+        navButtons.forEach(btn => {
+          if (!btn.hasAttribute('data-initialized')) {
+            btn.setAttribute('data-initialized', 'true');
+            btn.addEventListener('click', handleNavClick);
+          }
+        });
+
+        // Ensure burger menu works
+        const burger = document.getElementById('burger');
+        if (burger && !burger.hasAttribute('data-initialized')) {
+          burger.setAttribute('data-initialized', 'true');
+          burger.addEventListener('click', handleBurgerClick);
+        }
+      }
+
+      function handleNavClick(e) {
+        const btn = e.currentTarget;
+        const navMap = {
+          "Home": "home.html",
+          "Appointments": "counselor_appointment.html", 
+          "Students": "counselor_student.html",
+          "Messages": "counselor_message.html",
+          "Settings": "counselor_setting.html"
+        };
+
+        // Update active state
+        document.querySelectorAll('.nav .nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Close mobile sidebar
+        if (window.innerWidth <= 720) {
+          document.body.classList.remove('show-sidebar');
+        }
+
+        // Navigate
+        const target = navMap[btn.dataset.name];
+        if (target) {
+          setTimeout(() => {
+            window.location.href = target;
+          }, 50);
+        }
+      }
+
+      function handleBurgerClick(e) {
+        e.stopPropagation();
+        if (window.innerWidth <= 720) {
+          document.body.classList.toggle('show-sidebar');
+        } else {
+          const isCollapsed = document.body.classList.toggle('collapsed');
+          localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+        }
+      }
+
+      // Save profile button is wired later with toggle logic (edit/save). Do not attach
+      // a second unconditional listener here to avoid duplicate submissions.
+      const saveProfileBtn = document.getElementById('saveProfileBtn');
+
+      // Add image upload functionality
+      setTimeout(() => {
+        const imageUpload = document.getElementById('imageUpload');
+        const profileImage = document.getElementById('profileImage');
+        
+        if (imageUpload && profileImage) {
+          imageUpload.addEventListener('change', handleImageUpload);
+          profileImage.addEventListener('click', () => imageUpload.click());
+        }
+      }, 100);
+
+      function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+          // Check file size (max 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            alert('Image size should be less than 5MB');
+            return;
+          }
+
+          // Check file type
+          if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            // Show cropping modal instead of directly setting image
+            showCropModal(e.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      // Cropper elements/state
+      const cropModal = document.getElementById("cropModal");
+      const cropImage = document.getElementById("cropImage");
+      const cropApplyBtn = document.getElementById("cropApplyBtn");
+      const cropCancelBtn = document.getElementById("cropCancelBtn");
+      const closeCropModal = document.getElementById("closeCropModal");
+      let cropper = null;
+      let pendingPhotoTarget = null; // 'profile' for profile image changes
+      let croppedDataURL = "";   // holds cropped image
+
+      function fileToDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function openCropperForFile(file, target) {
+        pendingPhotoTarget = target; // 'profile'
+        fileToDataURL(file).then((url) => {
+          cropImage.src = url;
+          openModal(cropModal);
+          setTimeout(() => {
+            if (cropper) { try { cropper.destroy(); } catch {} }
+            cropper = new Cropper(cropImage, {
+              aspectRatio: 1,
+              viewMode: 1,
+              autoCropArea: 0.8,
+              background: false,
+              responsive: true,
+              guides: false,
+              center: true,
+              highlight: false,
+              cropBoxMovable: true,
+              cropBoxResizable: true,
+              toggleDragModeOnDblclick: false,
+              ready: function () {
+                // Make crop box circular
+                const cropBox = this.cropper.cropBox;
+                const viewBox = this.cropper.viewBox;
+                if (cropBox) cropBox.style.borderRadius = '50%';
+                if (viewBox) viewBox.style.borderRadius = '50%';
+              }
+            });
+          }, 100);
+        });
+      }
+
+      function openModal(modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      function closeModal(modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      function showCropModal(imageSrc) {
+        cropImage.src = imageSrc;
+        openModal(cropModal);
+        setTimeout(() => {
+          if (cropper) { try { cropper.destroy(); } catch {} }
+          cropper = new Cropper(cropImage, {
+            aspectRatio: 1,
+            viewMode: 1,
+            autoCropArea: 0.8,
+            background: false,
+            responsive: true,
+            guides: false,
+            center: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false,
+            ready: function () {
+              // Make crop box circular
+              const cropBox = this.cropper.cropBox;
+              const viewBox = this.cropper.viewBox;
+              if (cropBox) cropBox.style.borderRadius = '50%';
+              if (viewBox) viewBox.style.borderRadius = '50%';
+            }
+          });
+        }, 100);
+      }
+
+      // Initialize cropping modal event listeners
+      document.addEventListener('DOMContentLoaded', function() {
+        cropCancelBtn?.addEventListener("click", () => {
+          try { cropper?.destroy(); } catch {}
+          cropper = null;
+          closeModal(cropModal);
+          pendingPhotoTarget = null;
+        });
+
+        closeCropModal?.addEventListener("click", () => {
+          try { cropper?.destroy(); } catch {}
+          cropper = null;
+          closeModal(cropModal);
+          pendingPhotoTarget = null;
+        });
+
+        cropApplyBtn?.addEventListener("click", async () => {
+          if (!cropper) return;
+          
+          // Show loading state (disabled only; do not change text)
+          cropApplyBtn.disabled = true;
+          cropApplyBtn.classList.add('opacity-60');
+          
+          // Get cropped canvas
+          const canvas = cropper.getCroppedCanvas({ width: 320, height: 320 });
+          
+          // Create circular canvas
+          const circularCanvas = document.createElement('canvas');
+          const ctx = circularCanvas.getContext('2d');
+          circularCanvas.width = 320;
+          circularCanvas.height = 320;
+          
+          // Create circular clipping path
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(160, 160, 160, 0, Math.PI * 2, true);
+          ctx.closePath();
+          ctx.clip();
+          
+          // Draw the cropped image within the circular path
+          ctx.drawImage(canvas, 0, 0, 320, 320);
+          ctx.restore();
+          
+          const dataUrl = circularCanvas.toDataURL('image/png', 0.92);
+          
+          // Update profile image
+          const profileImg = document.getElementById('profileImage');
+          if (profileImg) {
+            profileImg.src = dataUrl;
+          }
+          
+          croppedDataURL = dataUrl;
+          
+          try {
+            // Auto-save the profile with the new image
+            await saveCounselorProfile();
+            
+            // Success: keep disabled briefly then continue (do not change text)
+            cropApplyBtn.classList.remove('opacity-60');
+            
+            // Close modal and reload page after short delay
+            setTimeout(() => {
+              try { cropper.destroy(); } catch {}
+              cropper = null;
+              closeModal(cropModal);
+              pendingPhotoTarget = null;
+              
+              // Reload the page to refresh all data
+              window.location.reload();
+            }, 1000);
+            
+          } catch (error) {
+            console.error('Error saving profile:', error);
+            // show a brief error state but keep label unchanged
+            cropApplyBtn.classList.remove('opacity-60');
+            cropApplyBtn.disabled = false;
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+              cropApplyBtn.innerHTML = 'Apply';
+            }, 2000);
+          }
+        });
+      });
+    })();
+
+    // Function to save counselor profile to database
+    async function saveCounselorProfile() {
+      const saveBtn = document.getElementById('saveProfileBtn');
+      
+      try {
+        // Show loading state (disable button, but do not change its label)
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-60');
+        
+        const auth = (await import('./main.js')).auth;
+        const user = auth.currentUser;
+        
+        if (!user) {
+          alert('You must be logged in to save changes');
+          return;
+        }
+
+        // Get form data
+        const formData = {};
+
+        // Get values directly from form fields by ID using correct database field names
+        const firstNameField = document.getElementById('firstNameField');
+        const lastNameField = document.getElementById('lastNameField');
+        const emailField = document.getElementById('emailField');
+        const usernameField = document.getElementById('usernameField');
+        const campusField = document.getElementById('campusField');
+        const collegeField = document.getElementById('collegeField');
+        const phoneField = document.getElementById('phoneField');
+
+        // Validate required fields
+        if (!firstNameField?.value?.trim()) {
+          alert('First Name is required');
+          return;
+        }
+        if (!lastNameField?.value?.trim()) {
+          alert('Last Name is required');
+          return;
+        }
+        if (!emailField?.value?.trim()) {
+          alert('Email is required');
+          return;
+        }
+        if (!usernameField?.value?.trim()) {
+          alert('Username is required');
+          return;
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailField.value.trim())) {
+          alert('Please enter a valid email address');
+          return;
+        }
+
+        // Collect form data
+        formData.first_name = firstNameField.value.trim();
+        formData.last_name = lastNameField.value.trim();
+        formData.email_address = emailField.value.trim();
+        formData.username = usernameField.value.trim();
+        if (campusField?.value?.trim()) formData.campus = campusField.value.trim();
+        if (collegeField?.value?.trim()) formData.college = collegeField.value.trim();
+        if (phoneField?.value?.trim()) formData.phone_number = phoneField.value.trim();
+
+        // Include profile image if it was changed
+        const profileImg = document.getElementById('profileImage');
+        if (profileImg && profileImg.src && !profileImg.src.includes('pravatar.cc')) {
+          formData.photo_url = profileImg.src;
+        }
+
+        // Use database connection from main.js
+        const { db } = await import('./main.js');
+        const { query, ref, orderByChild, equalTo, set, get } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+
+        // Find counselor record and update it
+        const q = query(ref(db, "counselors"), orderByChild("uid"), equalTo(user.uid));
+        const qsnap = await get(q);
+        
+        if (qsnap.exists()) {
+          // Get the counselor key and update
+          let counselorKey = null;
+          qsnap.forEach((child) => {
+            counselorKey = child.key;
+          });
+          
+          if (counselorKey) {
+            const currentData = qsnap.val()[counselorKey];
+            
+            // Merge current data with form data
+            const updatedData = { ...currentData, ...formData };
+            
+            // Save to database
+            await set(ref(db, `counselors/${counselorKey}`), updatedData);
+            
+            // Success: briefly mark as saved visually (no text change)
+            saveBtn.classList.remove('opacity-60');
+            saveBtn.classList.add('bg-green-500');
+            
+            // Update profile header name if name changed
+            const profileName = document.getElementById('profileHeaderName');
+            if (profileName) {
+              profileName.textContent = `${formData.first_name} ${formData.last_name}`;
+            }
+            
+            // Clear any cached user info to force refresh (do NOT clear entire sessionStorage
+            // because other pages rely on flags stored there, e.g. login deduplication)
+            localStorage.removeItem('cachedUserInfo');
+
+            // Build a clear subtitle describing what changed + timestamp
+            try {
+              const fieldLabels = {
+                first_name: 'First name',
+                last_name: 'Last name',
+                email_address: 'Email',
+                username: 'Username',
+                campus: 'Campus',
+                college: 'College',
+                phone_number: 'Phone',
+                photo_url: 'Profile photo'
+              };
+
+              const changed = [];
+              Object.keys(formData).forEach(k => {
+                const before = (currentData && typeof currentData[k] !== 'undefined') ? String(currentData[k]) : '';
+                const after = String(updatedData[k] || '');
+                if (before !== after) changed.push(fieldLabels[k] || k);
+              });
+
+              const tsNow = Date.now();
+              const timestampStr = new Date(tsNow).toLocaleString();
+              const changedDesc = (changed.length > 0) ? `Updated: ${changed.join(', ')}` : `Updated profile for ${formData.first_name} ${formData.last_name}`;
+              const subtitle = `${changedDesc} • ${timestampStr}`;
+
+              // Record profile edit activity safely. Prefer the global helper when present,
+              // otherwise write directly to the Realtime DB so the activity is not lost.
+              if (typeof window.recordActivity === 'function') {
+                // use the centralized helper when available
+                window.recordActivity({ icon: '✏️', title: 'Updated profile information', subtitle: subtitle, meta: 'profile_edit', ts: tsNow });
+              } else {
+                // fallback: write an activity entry directly so edits still appear in Recent Activity
+                try {
+                  const { ref, push, set } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+                  const payload = { icon: '✏️', title: 'Updated profile information', subtitle: subtitle, meta: 'profile_edit', ts: tsNow };
+                  const p = push(ref(db, `activity/${user.uid}`));
+                  await set(p, payload);
+                } catch (errInner) {
+                  console.error('Failed to write profile activity fallback:', errInner);
+                }
+              }
+            } catch (e) {
+              console.error('recordActivity (profile) failed', e);
+            }
+            
+            setTimeout(() => {
+              saveBtn.classList.remove('bg-green-500');
+              saveBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+              saveBtn.disabled = false;
+            }, 2000);
+          }
+          
+        } else {
+          alert('Counselor profile not found. Please contact support.');
+        }
+        
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        alert('Error saving profile: ' + (error.message || 'Please try again.'));
+      } finally {
+        // Reset button state if there was an error
+        if (saveBtn.disabled) {
+          setTimeout(() => {
+            saveBtn.classList.remove('bg-gray-400', 'bg-green-500');
+            saveBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            saveBtn.disabled = false;
+          }, 1000);
+        }
+        }
+      }
+
+      // Change Password Functionality
+      const changePasswordModal = document.getElementById('changePasswordModal');
+      const changePasswordBtn = document.getElementById('changePasswordBtn');
+      const cancelPasswordChange = document.getElementById('cancelPasswordChange');
+      const changePasswordForm = document.getElementById('changePasswordForm');
+      const currentPassword = document.getElementById('currentPassword');
+      const newPassword = document.getElementById('newPassword');
+      const confirmPassword = document.getElementById('confirmPassword');
+      const passwordMessage = document.getElementById('passwordMessage');
+      const changePasswordBtnText = document.getElementById('changePasswordBtnText');
+      const changePasswordSpinner = document.getElementById('changePasswordSpinner');
+
+      // Password visibility toggle functionality
+      const togglePasswordVisibility = (inputId, toggleBtnId) => {
+        const input = document.getElementById(inputId);
+        const toggleBtn = document.getElementById(toggleBtnId);
+        
+        if (!input || !toggleBtn) return;
+        
+        toggleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          
+          const eyeOpen = toggleBtn.querySelectorAll('.eye-open');
+          const eyeClosed = toggleBtn.querySelectorAll('.eye-closed');
+          
+          if (input.type === 'password') {
+            input.type = 'text';
+            eyeOpen.forEach(el => el.classList.add('hidden'));
+            eyeClosed.forEach(el => el.classList.remove('hidden'));
+          } else {
+            input.type = 'password';
+            eyeOpen.forEach(el => el.classList.remove('hidden'));
+            eyeClosed.forEach(el => el.classList.add('hidden'));
+          }
+        });
+      };
+
+      // Initialize password toggle buttons
+      togglePasswordVisibility('currentPassword', 'toggleCurrentPassword');
+      togglePasswordVisibility('newPassword', 'toggleNewPassword');
+      togglePasswordVisibility('confirmPassword', 'toggleConfirmPassword');
+
+      // Open change password modal
+      changePasswordBtn?.addEventListener('click', () => {
+        changePasswordModal.classList.remove('hidden');
+        changePasswordModal.classList.add('flex');
+        
+        // Reset form
+        changePasswordForm.reset();
+        passwordMessage.classList.add('hidden');
+        passwordMessage.textContent = '';
+      });
+
+      // Close modal function (only via Cancel button)
+      const closePasswordModal = () => {
+        changePasswordModal.classList.add('hidden');
+        changePasswordModal.classList.remove('flex');
+        changePasswordForm.reset();
+        passwordMessage.classList.add('hidden');
+      };
+
+      // Only Cancel button can close the modal
+      cancelPasswordChange?.addEventListener('click', closePasswordModal);
+
+      // Form validation
+      const validatePasswordForm = () => {
+        const current = currentPassword.value.trim();
+        const newPass = newPassword.value.trim();
+        const confirm = confirmPassword.value.trim();
+
+        if (!current || !newPass || !confirm) {
+          showPasswordMessage('Please fill in all fields.', 'error');
+          return false;
+        }
+
+        if (newPass.length < 8) {
+          showPasswordMessage('New password must be at least 8 characters long.', 'error');
+          return false;
+        }
+
+        if (newPass !== confirm) {
+          showPasswordMessage('New password and confirmation do not match.', 'error');
+          return false;
+        }
+
+        if (current === newPass) {
+          showPasswordMessage('New password must be different from current password.', 'error');
+          return false;
+        }
+
+        return true;
+      };
+
+      const showPasswordMessage = (message, type) => {
+        passwordMessage.textContent = message;
+        passwordMessage.classList.remove('hidden', 'text-red-600', 'text-green-600');
+        passwordMessage.classList.add(type === 'error' ? 'text-red-600' : 'text-green-600');
+      };
+
+      // Handle form submission
+      changePasswordForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!validatePasswordForm()) {
+          return;
+        }
+
+        // Show confirmation modal
+        showConfirmationModal();
+      });
+
+      // Confirmation modal functionality
+      const confirmModal = document.getElementById('confirmModal');
+      const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+      const confirmOkBtn = document.getElementById('confirmOkBtn');
+
+      const showConfirmationModal = () => {
+        confirmModal.style.display = 'flex';
+      };
+
+      const hideConfirmationModal = () => {
+        confirmModal.style.display = 'none';
+      };
+
+      confirmCancelBtn?.addEventListener('click', hideConfirmationModal);
+
+      confirmOkBtn?.addEventListener('click', async () => {
+        hideConfirmationModal();
+        await proceedWithPasswordChange();
+      });
+
+      // Extract password change logic to separate function
+      const proceedWithPasswordChange = async () => {
+        // Show loading state
+        changePasswordBtnText.textContent = 'Changing...';
+        changePasswordSpinner.classList.remove('hidden');
+        document.getElementById('confirmPasswordChange').disabled = true;
+
+        try {
+          const auth = (await import('./main.js')).auth;
+          const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js');
+          
+          const user = auth.currentUser;
+          if (!user) {
+            throw new Error('You must be logged in to change password');
+          }
+
+          if (!user.email) {
+            throw new Error('User email not found. Please log in again.');
+          }
+
+          const currentPasswordValue = currentPassword.value.trim();
+          if (!currentPasswordValue) {
+            throw new Error('Current password is required');
+          }
+
+          // Reauthenticate user with current password
+          const credential = EmailAuthProvider.credential(user.email, currentPasswordValue);
+          await reauthenticateWithCredential(user, credential);
+
+          // Update password
+          await updatePassword(user, newPassword.value.trim());
+
+          // Show success message
+          showPasswordMessage('Password changed successfully!', 'success');
+          
+          // Reset form after success
+          setTimeout(() => {
+            closePasswordModal();
+          }, 1500);
+
+        } catch (error) {
+          console.error('Password change error:', error);
+          
+          // Handle specific error cases
+          let errorMessage = 'Failed to change password. Please try again.';
+          
+          if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            errorMessage = 'Current password is incorrect. Please check and try again.';
+          } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'New password is too weak. Please choose a stronger password.';
+          } else if (error.code === 'auth/requires-recent-login') {
+            errorMessage = 'Please log out and log back in, then try changing your password.';
+          } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = 'Too many attempts. Please try again later.';
+          } else if (error.code === 'auth/user-not-found') {
+            errorMessage = 'User account not found. Please log in again.';
+          } else if (error.code === 'auth/network-request-failed') {
+            errorMessage = 'Network error. Please check your connection and try again.';
+          }
+          
+          showPasswordMessage(errorMessage, 'error');
+        } finally {
+          // Reset loading state
+          changePasswordBtnText.textContent = 'Change Password';
+          changePasswordSpinner.classList.add('hidden');
+          document.getElementById('confirmPasswordChange').disabled = false;
+        }
+      };
+
+      // Real-time password validation
+      confirmPassword?.addEventListener('input', () => {
+        if (confirmPassword.value && newPassword.value && confirmPassword.value !== newPassword.value) {
+          confirmPassword.setCustomValidity('Passwords do not match');
+        } else {
+          confirmPassword.setCustomValidity('');
+        }
+      });
+
+      newPassword?.addEventListener('input', () => {
+        if (confirmPassword.value && newPassword.value && confirmPassword.value !== newPassword.value) {
+          confirmPassword.setCustomValidity('Passwords do not match');
+        } else {
+          confirmPassword.setCustomValidity('');
+        }
+      });
+
+      // ====== EDIT/Save Toggle for Profile Fields ======
+      const saveProfileBtn = document.getElementById('saveProfileBtn');
+      const profileFields = [
+        'firstNameField',
+        'lastNameField', 
+        'emailField',
+        'usernameField',
+        'campusField',
+        'collegeField',
+        'phoneField'
+      ];
+
+      // Start with fields locked (read-only)
+      let isEditingProfile = false;
+
+      const setFieldsEditable = (editable) => {
+        profileFields.forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (editable) {
+            el.removeAttribute('readonly');
+            el.disabled = false;
+            el.classList.remove('opacity-60');
+          } else {
+            el.setAttribute('readonly', 'true');
+            el.disabled = true;
+            el.classList.add('opacity-60');
+          }
+        });
+      };
+
+      // Initialize fields as non-editable on load
+      setFieldsEditable(false);
+
+      // Store original values for change detection
+      const originalValues = {};
+      const refreshOriginalValues = () => {
+        profileFields.forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (field) originalValues[fieldId] = field.value;
+        });
+      };
+      refreshOriginalValues();
+
+      // Highlighting helpers (used when editing)
+      const highlightSaveButton = () => {
+        saveProfileBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        saveProfileBtn.classList.add('bg-green-500', 'hover:bg-orange-600', 'animate-pulse');
+        // keep label text-only to avoid inserting emoji icons
+        saveProfileBtn.textContent = 'Save Changes';
+      };
+      const resetSaveButton = () => {
+        saveProfileBtn.classList.remove('bg-green-500', 'hover:bg-orange-600', 'animate-pulse');
+        saveProfileBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+        saveProfileBtn.textContent = 'Save Changes';
+      };
+
+      // Check for changes while editing
+      const checkForChanges = () => {
+        if (!isEditingProfile) return;
+        let hasChanges = false;
+        profileFields.forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (field && field.value !== originalValues[fieldId]) hasChanges = true;
+        });
+        if (hasChanges) highlightSaveButton(); else resetSaveButton();
+      };
+
+      // Wire change listeners
+      profileFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.addEventListener('input', checkForChanges);
+          field.addEventListener('change', checkForChanges);
+        }
+      });
+
+      // Toggle handler: Edit -> enable fields; Save -> persist and lock fields
+      if (saveProfileBtn) {
+        // initialize label
+        saveProfileBtn.textContent = 'Edit Profile';
+        saveProfileBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        saveProfileBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+
+        saveProfileBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          if (!isEditingProfile) {
+            // Enter edit mode
+            isEditingProfile = true;
+            setFieldsEditable(true);
+            saveProfileBtn.textContent = 'Save Changes';
+            saveProfileBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            saveProfileBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            // refresh original values for change detection
+            refreshOriginalValues();
+            return;
+          }
+
+          // Save changes path
+          try {
+            await saveCounselorProfile();
+            // After save, lock fields
+            setFieldsEditable(false);
+            isEditingProfile = false;
+            saveProfileBtn.textContent = 'Edit Profile';
+            saveProfileBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            saveProfileBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            // refresh stored originals
+            refreshOriginalValues();
+          } catch (err) {
+            console.error('Failed to save profile via toggle save', err);
+            // keep in edit mode so user can retry
+          }
+        });
+      }
+    </script>
+
+  <script type="module">
+    // Notification dropdown wiring for viewAccount page
+    import { fetchNotifications } from './notifications-api.js';
+
+    const notifBtn = document.getElementById('notifBtn');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifDropdown = document.getElementById('notificationDropdown');
+    const notifList = document.getElementById('notifList');
+    const notifEmpty = document.getElementById('notifEmpty');
+    const markAllBtn = document.getElementById('notifMarkAll');
+    const clearAllBtn = document.getElementById('notifClearAll');
+
+    let notifications = [];
+
+    function updateBadge(count) {
+      if (!notifBadge) return;
+      if (count > 0) {
+        notifBadge.style.display = 'inline-flex';
+        notifBadge.textContent = count > 99 ? '99+' : String(count);
+      } else {
+        notifBadge.style.display = 'none';
+      }
+    }
+
+    function escapeHtml(str) { if (str == null) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    function renderNotifications(list) {
+      notifications = Array.isArray(list) ? list.slice() : [];
+      notifList.innerHTML = '';
+      if (!notifications.length) {
+        notifList.appendChild(notifEmpty);
+        notifEmpty.style.display = 'block';
+        updateBadge(0);
+        return;
+      }
+      notifEmpty.style.display = 'none';
+      notifications.forEach(n => {
+        const li = document.createElement('li');
+        li.style.padding = '10px'; li.style.display = 'flex'; li.style.gap = '10px'; li.style.alignItems = 'flex-start'; li.tabIndex = 0;
+        li.className = (n.unread ? 'notif-item unread' : 'notif-item'); li.dataset.id = n.id || '';
+        const iconBg = (n.type === 'alert') ? '#fff7ed' : '#eef2ff'; const iconColor = (n.type === 'alert') ? '#92400e' : '#1e3a8a';
+        li.innerHTML = `<div style="width:44px;height:44px;border-radius:8px;flex-shrink:0;background:${iconBg};display:flex;align-items:center;justify-content:center;font-weight:700;color:${iconColor}">${escapeHtml((n.title||'').slice(0,1) || 'N')}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(n.title||'')}</div><div style="font-size:13px;color:#6b7280;margin-top:4px;white-space:normal">${escapeHtml(n.message||'')}</div><div style="font-size:11px;color:#9ca3af;margin-top:6px">${n.time? new Date(n.time).toLocaleString() : ''}</div></div>`;
+        li.addEventListener('click', (e) => {
+          li.classList.remove('unread');
+          const item = notifications.find(x => x.id === li.dataset.id);
+          if (item) item.unread = false;
+          updateBadge(notifications.filter(x => x.unread).length);
+          if (typeof window.onNotificationClick === 'function') {
+            try { window.onNotificationClick(item); } catch (err) { console.warn(err); }
+          }
+        });
+        notifList.appendChild(li);
+      });
+      updateBadge(notifications.filter(x => x.unread).length);
+    }
+
+    function openDropdown() { if (!notifDropdown) return; notifDropdown.style.display = 'block'; notifBtn.setAttribute('aria-expanded','true'); }
+    function closeDropdown() { if (!notifDropdown) return; notifDropdown.style.display = 'none'; notifBtn.setAttribute('aria-expanded','false'); }
+
+    notifBtn && notifBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notifDropdown.style.display === 'block') closeDropdown(); else openDropdown();
+      if (notifDropdown.style.display === 'block' && notifications.length === 0) tryLoad();
+    });
+
+    document.addEventListener('click', (e) => { if (!notifDropdown) return; if (!notifDropdown.contains(e.target) && e.target !== notifBtn && !notifBtn.contains(e.target)) closeDropdown(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDropdown(); });
+
+    markAllBtn && markAllBtn.addEventListener('click', async (e) => { notifications.forEach(n=>n.unread=false); renderNotifications(notifications); if (typeof window.markAllNotificationsRead === 'function' && window.currentUserId) { try { await window.markAllNotificationsRead(window.currentUserId); } catch(e){console.warn(e);} } });
+
+    clearAllBtn && clearAllBtn.addEventListener('click', async (e) => { notifications = []; renderNotifications([]); if (typeof window.clearAllNotifications === 'function' && window.currentUserId) { try { await window.clearAllNotifications(window.currentUserId); } catch(e){console.warn(e);} } });
+
+    async function tryLoad(attempts = 0) {
+      const uid = window.currentUserId;
+      if (!uid) { if (attempts < 12) setTimeout(()=>tryLoad(attempts+1), 400); return; }
+      try { const list = await fetchNotifications(uid); renderNotifications(list || []); } catch (err) { console.warn('Failed to load notifications', err); renderNotifications([]); }
+    }
+
+    tryLoad();
+  </script>
+
+</body>
+</html>
